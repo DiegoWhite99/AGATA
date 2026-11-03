@@ -31,9 +31,9 @@
         <p class="ayuda">Todo cargo se liga a su perfil institucional. Al elegirlo, el formulario se llena con su misión,
           responsabilidades, competencias y el líder que indica el perfil. Revisa los datos antes de guardar.</p>
         <div class="perfil-elegir">
-          <label class="campo"><span>Perfil <b class="req" data-req-perfil>*</b></span>
-            <select name="perfil_id" autofocus><option value="">Cargando perfiles…</option></select>
-            <small class="error" data-error="perfil_id" hidden></small></label>
+          <div class="campo"><label for="vac-perfil">Perfil <b class="req" data-req-perfil>*</b></label>
+            <select name="perfil_id" id="vac-perfil" autofocus><option value="">Cargando perfiles…</option></select>
+            <small class="error" data-error="perfil_id" hidden></small></div>
           <a class="btn btn-sec btn-sm" id="ver-perfiles" href="/perfiles" target="_blank" rel="noopener">Ver perfiles ↗</a>
         </div>
         <details class="subir-otro">
@@ -55,9 +55,9 @@
           <label class="campo"><span>Área <b class="req">*</b></span>
             <input name="area" placeholder="Ej. Robótica e Innovación" required>
             <small class="error" data-error="area" hidden></small></label>
-          <label class="campo"><span>Líder o jefe <b class="req">*</b></span>
-            <select name="lider_id" required></select>
-            <small class="error" data-error="lider_id" hidden></small></label>
+          <div class="campo"><label for="vac-lider">Líder o jefe <b class="req">*</b></label>
+            <select name="lider_id" id="vac-lider" required></select>
+            <small class="error" data-error="lider_id" hidden></small></div>
         </div>
         <div id="lider-preview" class="lider-preview" hidden></div>
         <label class="campo">
@@ -111,15 +111,31 @@
         </div>
         <div class="pesos-barra" id="pesos-barra" aria-hidden="true"></div>
         <small class="error" data-error="pesos" hidden></small>
-        <label class="campo campo-medio"><span>Elemento afín al cargo</span>
-          <select name="elemento_afin">
+        <div class="campo campo-medio"><label for="vac-elemento">Elemento afín al cargo</label>
+          <select name="elemento_afin" id="vac-elemento">
             <option value="">Ninguno</option>
             <option value="Fuego">Fuego · impulso y acción</option>
             <option value="Tierra">Tierra · método y constancia</option>
             <option value="Aire">Aire · ideas y comunicación</option>
             <option value="Agua">Agua · intuición y empatía</option>
           </select>
-        </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>4 · Requisitos excluyentes <em class="opcional">(opcionales)</em></legend>
+        <p class="ayuda">Lo único innegociable del cargo: título, experiencia y proyectos. El oráculo IA lo verifica en la
+          hoja de vida y el trabajo en línea; quien no lo cumple queda marcado y al final del ranking, y el líder confirma.
+          Licencias, libreta militar y otros documentos no suman ni restan.</p>
+        <div class="grid-3">
+          <label class="campo"><span>Título</span><input name="excl_titulo" maxlength="300"
+            placeholder="Ej. Profesional en ingeniería de sistemas o afines"></label>
+          <label class="campo"><span>Experiencia</span><input name="excl_experiencia" maxlength="300"
+            placeholder="Ej. 2 años en desarrollo web"></label>
+          <label class="campo"><span>Proyectos</span><input name="excl_proyectos" maxlength="300"
+            placeholder="Ej. Una aplicación web publicada"></label>
+        </div>
+        <p class="aviso-perfil" id="excl-perfil" hidden></p>
       </fieldset>
     </div>
     <footer class="dialogo-pie">

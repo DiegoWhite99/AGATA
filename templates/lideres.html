@@ -31,9 +31,9 @@
             <small class="error" data-error="cargo" hidden></small></label>
           <label class="campo"><span>Área <b class="req">*</b></span><input name="area" placeholder="Ej. Robótica e Innovación" required>
             <small class="error" data-error="area" hidden></small></label>
-          <label class="campo"><span>Jefe inmediato <em class="opcional">(cadena de mando)</em></span>
-            <select name="jefe_id"><option value="">Nadie: encabeza la cadena</option></select>
-            <small class="error" data-error="jefe_id" hidden></small></label>
+          <div class="campo"><label for="lider-jefe">Jefe inmediato <em class="opcional">(cadena de mando)</em></label>
+            <select name="jefe_id" id="lider-jefe"><option value="">Nadie: encabeza la cadena</option></select>
+            <small class="error" data-error="jefe_id" hidden></small></div>
         </div>
         <p class="aviso-perfil" id="jefe-sugerido" hidden></p>
       </fieldset>

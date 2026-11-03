@@ -96,6 +96,7 @@ async function cargar(): Promise<void> {
           (c) => `<li class="lista-item">
             <div>
               <a class="lista-titulo" href="/candidatos/${c.id}">${esc(c.nombre)}</a>
+              ${c.arquetipo ? `<span class="rol-mini" style="--c:${COLOR_ELEMENTO[c.arquetipo.elemento]}">✦ ${esc(c.arquetipo.nombre)}</span>` : ""}
               <span class="meta">${esc(c.cargo)} · ${fecha(c.creado)}</span>
             </div>
             <div class="lista-puntaje">

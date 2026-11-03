@@ -92,6 +92,13 @@ npm run build      # o: npm run watch
    cartas, sinastría (rejilla de aspectos, radar por astro y lecturas), manejo de conflictos, lo que dictan las tres
    cartas, dictamen del oráculo IA, hoja de vida (puntos a favor y lo que conviene explorar) y decisión del líder.
 
+**Requisitos excluyentes, alertas y redirección**: cada cargo puede tener requisitos innegociables, pero solo de
+título, experiencia y proyectos (licencias, libreta militar y otros documentos no suman ni restan). El oráculo IA
+los verifica (cumple, no cumple o por validar) y quien no cumple queda marcado y al final del ranking; el líder
+confirma. Las **alertas** avisan sin descartar: requisito no cumplido o por validar, baja afinidad con el cargo
+(perfil profesional bajo) y sinergia difícil con el líder. Si alguien encaja mejor en otra vacante abierta
+(comparado sin IA en ambas), AGATA lo sugiere y permite **postularlo también** allí con un clic.
+
 **Roles y Red**: cada carta (líder, postulante y empresa) recibe un rol arquetípico según su elemento y su modalidad
 dominantes: El Pionero, El Guardián de la llama, El Explorador, El Arquitecto, El Constructor, El Artesano, El
 Estratega, El Visionario, El Mensajero, El Guía, El Oráculo y El Alquimista. En **Líderes** se registra el **jefe

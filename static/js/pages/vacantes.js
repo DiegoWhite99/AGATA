@@ -22,6 +22,9 @@ let editandoId = null;
 let habilidades = [];
 const nuevaHabilidad = () => ({ nombre: "", peso: 3, nivel: 3, palabras_clave: "", tipo: "tecnica" });
 const casillaTecnico = () => form.elements.namedItem("tecnico");
+/** Lo único que puede ser innegociable: título, experiencia y proyectos. */
+const EXCLUYENTES = ["titulo", "experiencia", "proyectos"];
+let excluyentesDelPerfil = {};
 const PESOS = [
     { campo: "peso_lider", nombre: "Líder ✶", color: "var(--gold)" },
     { campo: "peso_empresa", nombre: "Empresa ✶", color: "var(--bronze)" },
@@ -89,12 +92,12 @@ function pintarHabilidades() {
         .map((h, i) => `<div class="hab-fila" data-i="${i}">
         <label class="campo"><span class="sr">Habilidad ${i + 1}</span>
           <input data-k="nombre" value="${esc(h.nombre)}" placeholder="Habilidad (ej. ROS 2)"></label>
-        <label class="campo campo-num"><span>Peso</span><select data-k="peso">${opcionesNum(h.peso)}</select></label>
-        <label class="campo campo-num"><span>Nivel</span><select data-k="nivel">${opcionesNum(h.nivel)}</select></label>
-        <label class="campo campo-tipo"><span>Tipo</span><select data-k="tipo"
+        <div class="campo campo-num"><label for="hab-${i}-peso">Peso</label><select id="hab-${i}-peso" data-k="peso">${opcionesNum(h.peso)}</select></div>
+        <div class="campo campo-num"><label for="hab-${i}-nivel">Nivel</label><select id="hab-${i}-nivel" data-k="nivel">${opcionesNum(h.nivel)}</select></div>
+        <div class="campo campo-tipo"><label for="hab-${i}-tipo">Tipo</label><select id="hab-${i}-tipo" data-k="tipo"
             title="Las blandas no se buscan por palabras clave: el oráculo IA las lee o las deduce de los proyectos">
           <option value="tecnica" ${h.tipo === "tecnica" ? "selected" : ""}>Técnica</option>
-          <option value="blanda" ${h.tipo === "blanda" ? "selected" : ""}>Blanda</option></select></label>
+          <option value="blanda" ${h.tipo === "blanda" ? "selected" : ""}>Blanda</option></select></div>
         <label class="campo hab-claves"><span class="sr">Palabras clave</span>
           <input data-k="palabras_clave" value="${esc(h.palabras_clave)}"
             placeholder="${h.tipo === "blanda" ? "Blanda: la IA la lee o la deduce de los proyectos" : "Palabras clave del CV: ros2, gazebo, rviz"}"></label>
@@ -209,6 +212,8 @@ async function abrir(vac, duplicar = false, perfilInicial = "") {
         set("descripcion", vac.descripcion);
         set("elemento_afin", vac.elemento_afin ?? "");
         casillaTecnico().checked = !!vac.tecnico;
+        for (const t of EXCLUYENTES)
+            set(`excl_${t}`, vac.excluyentes?.find((x) => x.tipo === t)?.texto ?? "");
         for (const p of PESOS)
             set(p.campo, vac[p.campo]);
         habilidades = vac.habilidades.map(({ nombre, peso, nivel, palabras_clave, tipo }) => ({ nombre, peso, nivel, palabras_clave, tipo }));
@@ -216,7 +221,10 @@ async function abrir(vac, duplicar = false, perfilInicial = "") {
     else {
         habilidades = [nuevaHabilidad(), nuevaHabilidad(), nuevaHabilidad()];
         casillaTecnico().checked = false;
+        for (const t of EXCLUYENTES)
+            form.elements.namedItem(`excl_${t}`).value = "";
     }
+    $("#excl-perfil").hidden = true;
     pintarHabilidades();
     pintarPesos();
     pintarLiderPreview();
@@ -237,7 +245,19 @@ async function abrir(vac, duplicar = false, perfilInicial = "") {
         perfilSuperior = d.perfil.superior ?? "";
         liderDelPerfil = d.propuesta.campos.lider_id;
         pintarLiderPreview();
+        sugerirExcluyentes(d.perfil);
     }
+}
+/** Ofrece usar la formación y la experiencia del perfil como requisitos excluyentes (el líder decide). */
+function sugerirExcluyentes(p) {
+    const caja = $("#excl-perfil");
+    excluyentesDelPerfil = { titulo: (p.formacion ?? "").slice(0, 300), experiencia: (p.experiencia ?? "").slice(0, 300) };
+    const partes = [["Formación", p.formacion], ["Experiencia", p.experiencia]].filter(([, v]) => v);
+    caja.hidden = !partes.length;
+    caja.innerHTML = partes.length
+        ? `Según el perfil · ${partes.map(([n, v]) => `<strong>${n}:</strong> ${esc(v.length > 140 ? `${v.slice(0, 139)}…` : v)}`).join(" · ")}
+       <button type="button" class="btn btn-sec btn-sm" data-usar-excl>Usar como requisitos</button>`
+        : "";
 }
 form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -249,6 +269,7 @@ form.addEventListener("submit", async (e) => {
         descripcion: val("descripcion"),
         elemento_afin: val("elemento_afin"),
         tecnico: casillaTecnico().checked,
+        excluyentes: Object.fromEntries(EXCLUYENTES.map((t) => [t, val(`excl_${t}`).trim()])),
         perfil_id: selPerfil.value,
         perfil_archivo: selPerfil.value ? perfilArchivo : null,
         ...Object.fromEntries(PESOS.map((p) => [p.campo, Number(val(p.campo))])),
@@ -284,6 +305,13 @@ document.addEventListener("click", async (e) => {
     const el = (sel) => t.closest(sel);
     if (el("[data-cerrar]"))
         dlg.close();
+    if (el("[data-usar-excl]")) {
+        for (const [tipo, texto] of Object.entries(excluyentesDelPerfil)) {
+            if (texto)
+                form.elements.namedItem(`excl_${tipo}`).value = texto;
+        }
+        $("#excl-perfil").hidden = true;
+    }
     const qh = el("[data-quitar-hab]");
     if (qh) {
         habilidades.splice(Number(qh.dataset.quitarHab), 1);
@@ -378,6 +406,7 @@ async function aplicarPerfil(id) {
         perfilSuperior = d.perfil.superior ?? "";
         liderDelPerfil = d.propuesta.campos.lider_id;
         llenar(d.propuesta.campos);
+        sugerirExcluyentes(d.perfil);
         mostrarLigado(d, `Cargo ligado al perfil «${esc(d.perfil.titulo)}»`);
     }
     catch (err) {

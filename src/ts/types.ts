@@ -167,6 +167,35 @@ export interface Habilidad {
 
 export type TipoEvidencia = "directa" | "deducida" | "sin evidencia";
 
+/** Lo único que puede ser innegociable en un cargo. */
+export type TipoExcluyente = "titulo" | "experiencia" | "proyectos";
+
+export interface Excluyente {
+  tipo: TipoExcluyente;
+  texto: string;
+}
+
+export interface RequisitoVerificado extends Excluyente {
+  cumple: "si" | "no" | "dudoso" | "sin verificar";
+  evidencia: string;
+}
+
+/** Aviso para el líder; no descarta a nadie. */
+export interface Alerta {
+  clave: "requisitos" | "validar" | "afinidad" | "sinergia";
+  texto: string;
+}
+
+/** Otra vacante abierta (de la misma familia) donde el perfil profesional encaja mejor; comparado sin IA. */
+export interface Redireccion {
+  vacante_id: number;
+  cargo: string;
+  area: string;
+  /** Perfil profesional allá y aquí (hoja de vida, habilidades y trabajo en línea). */
+  perfil: number;
+  perfil_aqui: number;
+}
+
 /** Capacidad de crecer y aprender según el oráculo IA (no entra en el puntaje). */
 export interface Potencial {
   puntaje: number;
@@ -198,6 +227,7 @@ export interface VacanteResumen extends Pesos {
   elemento_afin: string | null;
   /** 1 si el cargo es técnico: pide GitHub, LinkedIn y repositorio además del portafolio. */
   tecnico: number;
+  excluyentes: Excluyente[] | null;
   candidatos: number;
   n_pendientes: number | null;
   n_aprobados: number | null;
@@ -226,6 +256,10 @@ export interface CandidatoFila {
   lecturas: Lecturas | null;
   destaca: Destaca[] | null;
   potencial: number | null;
+  alertas: Alerta[] | null;
+  cumple_requisitos: boolean | null;
+  arquetipo: Arquetipo | null;
+  redireccion: Redireccion | null;
 }
 
 export interface Vacante
@@ -308,6 +342,7 @@ export interface VacantePublica {
   habilidades: { nombre: string; nivel: number }[];
   requisitos: { formacion?: string; experiencia?: string; conocimientos?: string } | null;
   tecnico: boolean;
+  excluyentes: Excluyente[];
 }
 
 export type CampoEnlace = "github" | "linkedin" | "portafolio" | "repositorio";
@@ -443,6 +478,9 @@ export interface Resultado {
   puntaje: number;
   lecturas: Lecturas;
   potencial: Potencial | null;
+  requisitos: RequisitoVerificado[];
+  cumple_requisitos: boolean | null;
+  alertas: Alerta[];
   destaca: Destaca[];
   componentes: Componentes;
   pesos: Record<keyof Componentes, number>;
@@ -482,6 +520,7 @@ export interface Informe {
   empresa: Empresa | null;
   /** Puesto del postulante en el ranking de su vacante. */
   ranking: { posicion: number; total: number };
+  redireccion: Redireccion | null;
   ia: EstadoIA;
 }
 

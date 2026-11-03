@@ -22,6 +22,13 @@ LECTURAS = {
     "astral": ("lider", "empresa", "elemento", "conflicto"),
 }
 
+# Alertas (no descartan a nadie: avisan al líder sin que tenga que abrir el informe).
+UMBRAL_AFINIDAD_BAJA = 40   # perfil profesional por debajo: "Baja afinidad con el cargo"
+UMBRAL_SINERGIA_BAJA = 45   # sinastría con el líder por debajo, con un manejo de conflictos flojo
+UMBRAL_CONFLICTO_FLOJO = 50
+
+NOMBRES_EXCLUYENTE = {"titulo": "Título", "experiencia": "Experiencia", "proyectos": "Proyectos"}
+
 _FRASE_COMPONENTE = {
     "lider": "la sinastría con {lider}",
     "empresa": "la sinastría con {empresa}",
@@ -167,11 +174,23 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
     brechas = [h["nombre"] for h in sorted(detalle, key=lambda h: h["cobertura"] or 0) if h["estado"] == "brecha"]
     # El potencial (capacidad de crecer) es una lectura aparte del oráculo IA: no entra en el puntaje.
     potencial = ia.get("potencial") if ia_ok else None
+    # Requisitos excluyentes del cargo, tal como los verificó la IA ("sin verificar" si no hay IA o si
+    # el líder agregó el requisito después de la última consulta).
+    verificados = {r["tipo"]: r for r in ia.get("requisitos") or []} if ia_ok else {}
+    requisitos = [{**e, "cumple": verificados.get(e["tipo"], {}).get("cumple", "sin verificar"),
+                   "evidencia": verificados.get(e["tipo"], {}).get("evidencia", "")}
+                  for e in vacante.get("excluyentes") or []]
+    cumple = (None if not requisitos else False if any(r["cumple"] == "no" for r in requisitos)
+              else True if all(r["cumple"] == "si" for r in requisitos) else None)
+    alertas = _alertas(componentes, lecturas, requisitos, nombres)
 
     return {
         "puntaje": round(final, 1),
         "lecturas": lecturas,
         "potencial": potencial,
+        "requisitos": requisitos,
+        "cumple_requisitos": cumple,
+        "alertas": alertas,
         "destaca": [{"clave": k, "nombre": NOMBRES_COMPONENTE[k], "puntaje": componentes[k]} for k in destaca],
         "componentes": componentes,
         "pesos": pesos,
@@ -185,8 +204,26 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
         "experiencia_anios": anios_experiencia(texto),
         "nivel_educativo": nivel_educativo(texto),
         "cv_palabras": len(texto.split()),
-        "recomendacion": _recomendacion(componentes, lecturas, destaca, brechas, potencial, nombres),
+        "recomendacion": _recomendacion(componentes, lecturas, destaca, brechas, potencial, requisitos, nombres),
     }
+
+
+def _alertas(comp: dict, lecturas: dict, requisitos: list[dict], nombres: dict) -> list[dict]:
+    alertas = []
+    faltan = [r for r in requisitos if r["cumple"] == "no"]
+    if faltan:
+        alertas.append({"clave": "requisitos", "texto": "No cumple: " + "; ".join(
+            f"{NOMBRES_EXCLUYENTE[r['tipo']].lower()} ({r['texto']})" for r in faltan)})
+    dudosos = [r for r in requisitos if r["cumple"] == "dudoso"]
+    if dudosos:
+        alertas.append({"clave": "validar", "texto": "Por validar en entrevista: " + ", ".join(
+            NOMBRES_EXCLUYENTE[r["tipo"]].lower() for r in dudosos)})
+    if lecturas["profesional"] is not None and lecturas["profesional"] < UMBRAL_AFINIDAD_BAJA:
+        alertas.append({"clave": "afinidad", "texto": "Baja afinidad con el cargo"})
+    if (comp["lider"] is not None and comp["lider"] < UMBRAL_SINERGIA_BAJA
+            and (comp["conflicto"] is None or comp["conflicto"] < UMBRAL_CONFLICTO_FLOJO)):
+        alertas.append({"clave": "sinergia", "texto": f"Sinergia difícil con {nombres['lider']}"})
+    return alertas
 
 
 def _promedio(componentes: dict, pesos: dict, claves: tuple[str, ...]) -> float | None:
@@ -202,9 +239,13 @@ def _y(items: list[str]) -> str:
 
 
 def _recomendacion(comp: dict, lecturas: dict, destaca: list[str], brechas: list[str], potencial: dict | None,
-                   nombres: dict) -> str:
-    """Lo más fuerte del postulante y lo que conviene explorar, sin descartar a nadie."""
+                   requisitos: list[dict], nombres: dict) -> str:
+    """Lo más fuerte del postulante y lo que conviene explorar. Solo un requisito excluyente lo deja al final."""
     partes = []
+    faltan = [NOMBRES_EXCLUYENTE[r["tipo"]].lower() for r in requisitos if r["cumple"] == "no"]
+    if faltan:
+        partes.append(f"No cumple un requisito excluyente del cargo ({_y(faltan)}): queda al final del ranking "
+                      "y el líder confirma.")
     if destaca:
         fuertes = [f"{_FRASE_COMPONENTE[k].format(**nombres)} ({comp[k]:.0f}%)" for k in destaca]
         partes.append(f"Lo más fuerte de {nombres['candidato']} para este cargo es {_y(fuertes)}.")

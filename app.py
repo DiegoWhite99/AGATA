@@ -5,6 +5,7 @@ import csv
 import io
 import json
 import re
+import shutil
 import uuid
 from pathlib import Path
 
@@ -184,7 +185,7 @@ def api_panel():
         "SELECT decision_lider, COUNT(*) n FROM candidatos GROUP BY decision_lider")}
     recientes = con.execute("""
         SELECT c.id, c.nombre, c.puntaje, c.decision_lider, c.creado,
-               v.cargo, v.id AS vacante_id
+               json_extract(c.carta, '$.arquetipo') AS arquetipo, v.cargo, v.id AS vacante_id
         FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id
         ORDER BY c.id DESC LIMIT 8""").fetchall()
     return jsonify({
@@ -195,7 +196,8 @@ def api_panel():
         "pendientes": conteo.get(None, 0),
         "aprobados": conteo.get("aprobado", 0),
         "rechazados": conteo.get("rechazado", 0),
-        "recientes": rows_to_list(recientes),
+        "recientes": [{**r, "arquetipo": json.loads(r["arquetipo"]) if r["arquetipo"] else None}
+                      for r in rows_to_list(recientes)],
         "vacantes": _lista_vacantes(con, solo_abiertas=True),
         "empresa": _empresa(con),
         "ia": {"activa": oraculo.activo(), "modelo": oraculo.modelo()},
@@ -457,6 +459,15 @@ def _lista_vacantes(con, solo_abiertas: bool = False) -> list[dict]:
 
 
 PESOS = ("peso_lider", "peso_empresa", "peso_elemento", "peso_conflicto", "peso_cv", "peso_ia")
+# Lo único que puede ser innegociable en un cargo. Licencias, libreta militar y otros documentos no cuentan.
+EXCLUYENTES = ("titulo", "experiencia", "proyectos")
+# Redirección a otra vacante: cada tapa con su envase. Decide el perfil profesional (no los astros), dentro
+# de la misma familia de cargos (técnicos con técnicos), del mismo nivel o superior (nunca hacia abajo), y
+# solo si allá encaja claramente mejor.
+MEJORA_REDIRECCION = 10   # puntos de perfil profesional de más que debe dar la otra vacante
+MINIMO_REDIRECCION = 60   # perfil profesional mínimo allá para sugerirla
+# Ranking: quien no cumple un requisito excluyente va al final; los demás, por puntaje.
+ORDEN_RANKING = "COALESCE(json_extract(resultado, '$.cumple_requisitos') = 0, 0), puntaje DESC"
 
 
 def _validar_vacante(data: dict, requerir_perfil: bool = True) -> tuple[dict, list[dict]]:
@@ -479,6 +490,9 @@ def _validar_vacante(data: dict, requerir_perfil: bool = True) -> tuple[dict, li
     if vac["elemento_afin"] not in astro.ELEMENTOS:
         vac["elemento_afin"] = None
     vac["tecnico"] = 1 if data.get("tecnico") in (True, 1, "1", "true", "on") else 0
+    excl = data.get("excluyentes") if isinstance(data.get("excluyentes"), dict) else {}
+    lista = [{"tipo": t, "texto": _texto(excl, t)[:300]} for t in EXCLUYENTES if _texto(excl, t)]
+    vac["excluyentes"] = json.dumps(lista, ensure_ascii=False) if lista else None
     try:
         vac["lider_id"] = int(data.get("lider_id"))
         if not get_db().execute("SELECT 1 FROM lideres WHERE id=?", (vac["lider_id"],)).fetchone():
@@ -550,16 +564,23 @@ def api_vacante(vid: int):
         abort(404)
     vac["lider"] = _lider_publico(row_to_dict(con.execute("SELECT * FROM lideres WHERE id=?",
                                                           (vac["lider_id"],)).fetchone()))
-    vac["candidatos"] = rows_to_list(con.execute("""
+    vac["candidatos"] = rows_to_list(con.execute(f"""
         SELECT id, nombre, email, puntaje, decision_lider, creado,
                json_extract(resultado, '$.lecturas') AS lecturas,
                json_extract(resultado, '$.destaca') AS destaca,
                json_extract(resultado, '$.potencial.puntaje') AS potencial,
+               json_extract(resultado, '$.alertas') AS alertas,
+               json_extract(resultado, '$.cumple_requisitos') AS cumple_requisitos,
+               json_extract(carta, '$.arquetipo') AS arquetipo,
                json_extract(carta, '$.posiciones.sol.signo') AS signo_sol
-        FROM candidatos WHERE vacante_id=? ORDER BY puntaje DESC""", (vid,)))
+        FROM candidatos WHERE vacante_id=? ORDER BY {ORDEN_RANKING}""", (vid,)))
+    completos = rows_to_list(con.execute("SELECT * FROM candidatos WHERE vacante_id=?", (vid,)))
+    redirecciones = _redirecciones(con, vac, completos)
     for c in vac["candidatos"]:
-        for col in ("lecturas", "destaca"):
+        for col in ("lecturas", "destaca", "alertas", "arquetipo"):
             c[col] = json.loads(c[col]) if c[col] else None
+        c["cumple_requisitos"] = None if c["cumple_requisitos"] is None else bool(c["cumple_requisitos"])
+        c["redireccion"] = redirecciones.get(c["id"])
     empresa = _empresa(con)
     vac["empresa"] = {"nombre": empresa["nombre"], "carta": empresa["carta"]} if empresa else None
     perfil = perfiles.obtener(con, vac["perfil_id"], vac["perfil_archivo"])
@@ -667,6 +688,7 @@ def api_vacante_publica(vid: int):
         "habilidades": [{"nombre": h["nombre"], "nivel": h["nivel"]} for h in vac["habilidades"]],
         "requisitos": perfiles.requisitos(perfiles.obtener(con, vac["perfil_id"], vac["perfil_archivo"])),
         "tecnico": bool(vac["tecnico"]),
+        "excluyentes": vac["excluyentes"] or [],
     })
 
 
@@ -757,6 +779,38 @@ def _evaluar(con, vac: dict, cand: dict, consultar_ia: bool = False) -> dict:
     return evaluador.evaluar(*args, ia=cand.get("ia"))
 
 
+def _redirecciones(con, vac: dict, candidatos: list[dict]) -> dict[int, dict]:
+    """Otra vacante abierta donde cada postulante encajaría mejor por su perfil profesional (hoja de vida,
+    habilidades y trabajo en línea), dentro de la misma familia de cargos. La astrología no decide aquí: no
+    dice de qué profesión es alguien. Se compara sin la IA en los dos lados (la IA leyó la hoja de vida
+    frente a este cargo, no frente a los otros), para medir igual con igual."""
+    def rango(v: dict) -> int | None:
+        return perfiles.rango_cargo(v["cargo"], perfiles.obtener(con, v.get("perfil_id"), v.get("perfil_archivo")))
+
+    # Nunca hacia un cargo de menor nivel (quien se postula a director no recibe un cargo operativo), y si
+    # no se sabe el nivel de alguno de los dos, no se sugiere nada.
+    nivel = rango(vac)
+    otras = [o for o in (_vacante_completa(con, vid) for (vid,) in con.execute(
+        "SELECT id FROM vacantes WHERE estado='abierta' AND id != ? AND tecnico = ?", (vac["id"], vac["tecnico"])))
+        if nivel is not None and (rango(o) or 0) >= nivel]
+    salida = {}
+    for cand in candidatos:
+        sin_ia = {**cand, "ia": None}
+        aqui = _evaluar(con, vac, sin_ia)["lecturas"]["profesional"]
+        if aqui is None:
+            continue
+        opciones = [(o, _evaluar(con, o, sin_ia)["lecturas"]["profesional"]) for o in otras
+                    if not con.execute("SELECT 1 FROM candidatos WHERE vacante_id=? AND email=?",
+                                       (o["id"], cand["email"])).fetchone()]  # ya postulado allí
+        opciones = [(o, p) for o, p in opciones if p is not None]
+        if opciones:
+            otra, alla = max(opciones, key=lambda x: x[1])
+            if alla >= max(aqui + MEJORA_REDIRECCION, MINIMO_REDIRECCION):
+                salida[cand["id"]] = {"vacante_id": otra["id"], "cargo": otra["cargo"], "area": otra["area"],
+                                      "perfil": alla, "perfil_aqui": aqui}
+    return salida
+
+
 def _guardar_resultado(con, cid: int, cand: dict, res: dict) -> None:
     con.execute("UPDATE candidatos SET resultado=?, ia=?, puntaje=? WHERE id=?",
                 (json.dumps(res, ensure_ascii=False),
@@ -827,12 +881,13 @@ def api_candidato(cid: int):
     lider = row_to_dict(con.execute(
         "SELECT id, nombre, cargo, area, carta, cv_archivo FROM lideres WHERE id=?",
         (vac["lider_id"],)).fetchone())
-    # Puesto en el ranking de la vacante (los empates comparten puesto).
-    posicion, total = con.execute(
-        "SELECT SUM(puntaje > ?) + 1, COUNT(*) FROM candidatos WHERE vacante_id=?",
-        (cand["puntaje"], cand["vacante_id"])).fetchone()
+    # Puesto en el ranking de la vacante (el mismo orden que la tabla de la vacante).
+    orden = [r[0] for r in con.execute(
+        f"SELECT id FROM candidatos WHERE vacante_id=? ORDER BY {ORDEN_RANKING}", (cand["vacante_id"],))]
+    completo = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
     return jsonify({"candidato": cand, "vacante": vac, "lider": lider, "empresa": _empresa(con),
-                    "ranking": {"posicion": posicion, "total": total},
+                    "ranking": {"posicion": orden.index(cid) + 1, "total": len(orden)},
+                    "redireccion": _redirecciones(con, _vacante_completa(con, cand["vacante_id"]), [completo]).get(cid),
                     "ia": {"activa": oraculo.activo(), "modelo": oraculo.modelo()}})
 
 
@@ -840,13 +895,13 @@ def _releer_enlaces(con, cand: dict, vac: dict, propios: dict[str, str] | None =
     """Vuelve a visitar los enlaces del postulante y guarda lo leído en cand["enlaces"] y en la base.
 
     Solo se leen los que cuentan para el cargo (técnico o no). Sin `propios` se releen los
-    guardados. Con `propios` (el formulario de edición), o si no hay guardados, se toman esos y
-    los que falten salen de la hoja de vida."""
+    guardados; con `propios` (el formulario de edición) se toman esos. En los dos casos, los que
+    falten salen de la hoja de vida."""
     campos = enlaces.campos_para(vac["tecnico"])
-    actuales = enlaces.urls(cand.get("enlaces"), campos) if propios is None else {}
-    if not actuales:
-        ruta = UPLOADS / cand["cv_archivo"] if cand.get("cv_archivo") else None
-        actuales = enlaces.combinar(propios or {}, enlaces.desde_cv(ruta, cand.get("cv_texto") or ""), campos)
+    ruta = UPLOADS / cand["cv_archivo"] if cand.get("cv_archivo") else None
+    de_cv = enlaces.combinar({}, enlaces.desde_cv(ruta, cand.get("cv_texto") or ""), campos)
+    actuales = {**de_cv, **(enlaces.urls(cand.get("enlaces"), campos) if propios is None
+                            else enlaces.combinar(propios, {}, campos))}
     cand["enlaces"] = enlaces.leer(actuales, enlaces.claves_del_cargo(vac["habilidades"]))
     con.execute("UPDATE candidatos SET enlaces=? WHERE id=?",
                 (json.dumps(cand["enlaces"], ensure_ascii=False) if cand["enlaces"] else None, cand["id"]))
@@ -871,6 +926,36 @@ def api_reconsultar(cid: int):
         anterior = " Se conservó el dictamen anterior." if cand.get("error_ia") else ""
         return jsonify({"error": error + anterior}), 502
     return jsonify({"puntaje": res["puntaje"]})
+
+
+@app.post("/api/candidatos/<int:cid>/postular-a/<int:vid>")
+def api_postular_a_otra(cid: int, vid: int):
+    """Postula a la persona también a otra vacante abierta (la que se le sugiere), con sus mismos datos,
+    su hoja de vida y sus enlaces. La postulación original se conserva."""
+    con = get_db()
+    cand = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
+    vac = _vacante_completa(con, vid)
+    if not cand or not vac:
+        abort(404)
+    if vac["estado"] != "abierta":
+        return jsonify({"error": "Esa vacante ya está cerrada."}), 409
+    if con.execute("SELECT 1 FROM candidatos WHERE vacante_id=? AND email=?", (vid, cand["email"])).fetchone():
+        return jsonify({"error": "Ya está postulado a ese cargo."}), 409
+    nuevo = {k: cand[k] for k in ("nombre", "email", "telefono", "fecha_nac", "hora_nac", "ciudad",
+                                  "lat", "lon", "utc", "cv_texto", "carta", "enlaces")}
+    nuevo["vacante_id"] = vid
+    if cand["cv_archivo"] and (UPLOADS / cand["cv_archivo"]).exists():
+        # Copia propia del archivo: si se borra una de las dos postulaciones, la otra conserva su hoja de vida.
+        nuevo["cv_archivo"] = f"{uuid.uuid4().hex[:10]}_{cand['cv_archivo'].split('_', 1)[-1]}"
+        shutil.copyfile(UPLOADS / cand["cv_archivo"], UPLOADS / nuevo["cv_archivo"])
+    fila = {**nuevo, **{c: json.dumps(nuevo[c], ensure_ascii=False) if nuevo.get(c) else None for c in ("carta", "enlaces")}}
+    nuevo["id"] = con.execute(f"INSERT INTO candidatos ({', '.join(fila)}) VALUES ({', '.join('?' * len(fila))})",
+                              tuple(fila.values())).lastrowid
+    _releer_enlaces(con, nuevo, vac)
+    res = _evaluar(con, vac, nuevo, consultar_ia=oraculo.activo())
+    _guardar_resultado(con, nuevo["id"], nuevo, res)
+    con.commit()
+    return jsonify({"id": nuevo["id"], "puntaje": res["puntaje"]}), 201
 
 
 @app.put("/api/candidatos/<int:cid>/enlaces")
@@ -956,7 +1041,7 @@ def preparar_db() -> None:
     viejos = {r["vacante_id"] for r in con.execute(
         "SELECT vacante_id FROM candidatos WHERE resultado NOT LIKE '%\"conflicto\": {%'"
         " OR resultado NOT LIKE '%\"lecturas\"%' OR resultado NOT LIKE '%\"evidencia_tipo\"%'"
-        + ("" if not cartas_nuevas else " OR 1"))}
+        " OR resultado NOT LIKE '%\"alertas\"%'" + ("" if not cartas_nuevas else " OR 1"))}
     if viejos:
         with app.app_context():
             for vid in viejos:

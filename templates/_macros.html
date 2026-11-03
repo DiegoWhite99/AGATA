@@ -11,11 +11,11 @@
       <input type="time" name="hora_nac">
       <small class="error" data-error="hora_nac" hidden></small>
     </label>
-    <label class="campo">
-      <span>Ciudad de {{ que }} {% if obligatorio %}<b class="req">*</b>{% endif %}</span>
-      <select name="ciudad"><option value="">Cargando…</option></select>
+    <div class="campo">
+      <label for="natal-ciudad">Ciudad de {{ que }} {% if obligatorio %}<b class="req">*</b>{% endif %}</label>
+      <select name="ciudad" id="natal-ciudad"><option value="">Cargando…</option></select>
       <small class="error" data-error="ciudad" hidden></small>
-    </label>
+    </div>
   </div>
   <div class="coords grid-3" hidden>
     <label class="campo"><span>Nombre de la ciudad</span><input name="ciudad_otra" placeholder="Ej. Sogamoso, Colombia"></label>

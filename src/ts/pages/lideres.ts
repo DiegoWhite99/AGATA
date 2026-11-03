@@ -202,6 +202,7 @@ async function abrirCarta(l: Lider): Promise<void> {
     <div class="carta-cabecera">
       <div class="carta-rueda">${ruedaZodiacal(l.carta, 240)}</div>
       <div><p class="eyebrow">La regla de los astros</p>
+        ${chipArquetipo(l.carta, true)}
         <p class="parrafo"><strong>${esc(l.carta.resumen)}</strong></p>
         <p class="parrafo">${esc(l.carta.perfil_laboral)}</p></div>
     </div>

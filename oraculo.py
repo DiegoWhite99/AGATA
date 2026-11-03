@@ -22,6 +22,7 @@ MODELO_DEFECTO = "openai/gpt-oss-120b"
 MAX_CV = 9000
 MAX_CV_LIDER = 3000
 TIPOS_EVIDENCIA = ("directa", "deducida", "sin evidencia")
+TIPOS_EXCLUYENTE = ("titulo", "experiencia", "proyectos")
 # Groq limita los tokens por minuto (TPM) y cuenta en cada consulta lo enviado más el máximo de
 # respuesta. El plan gratuito permite 8000; con otro plan, se ajusta GROQ_TPM en el .env.
 LIMITE_TPM = 8000
@@ -63,6 +64,14 @@ Reglas:
   Las habilidades de tipo "blanda" casi nunca se escriben en una hoja de vida centrada en proyectos:
   dedúcelas antes de darlas por ausentes. En "fuente" di de dónde sale: "hoja de vida",
   "GitHub: <repositorio>", "portafolio"…
+- Si recibes "requisitos_excluyentes" (solo título, experiencia o proyectos), verifica cada uno con la hoja
+  de vida y el trabajo en línea y responde en "requisitos": "si" si se cumple; "no" solo si la evidencia
+  muestra con claridad que no se cumple; "dudoso" si falta información. Título: formación formal o su
+  equivalente (acepta afines si el requisito lo dice). Experiencia: cuentan empleos, prácticas, freelance y
+  proyectos reales con responsabilidad comparable. Proyectos: los que muestren la hoja de vida, GitHub o el
+  portafolio.
+- Los documentos administrativos (licencia de conducción, libreta militar, antecedentes y certificados
+  parecidos) no suman ni restan en ninguna nota ni en ningún requisito.
 - "potencial" (0-100) mide la capacidad de crecer y aprender, no la experiencia acumulada: velocidad de
   aprendizaje (tecnologías nuevas con el tiempo; usa la "trayectoria" de GitHub si la hay), proyectos
   cada vez más complejos, constancia, iniciativa propia y lo que construyó con poca experiencia formal.
@@ -87,6 +96,7 @@ Reglas:
                    "tipo_evidencia": "directa | deducida | sin evidencia", "fuente": "<de dónde sale>",
                    "evidencia": "<1 frase>"}],
   "potencial": {"puntaje": 0-100, "lectura": "<1-2 frases>", "senales": ["<máx 4 señales concretas de crecimiento>"]},
+  "requisitos": [{"tipo": "titulo | experiencia | proyectos", "cumple": "si | no | dudoso", "evidencia": "<1 frase>"}],
   "ajuste_lider": 0-100,
   "ajuste_explicacion": "<1-2 frases>",
   "resumen": "<2-3 frases sobre el perfil>",
@@ -171,6 +181,12 @@ def _limpiar(crudo: dict, habilidades: list[dict]) -> dict:
     pot = crudo.get("potencial")
     potencial = ({"puntaje": _entero(pot.get("puntaje"), 50), "lectura": str(pot.get("lectura") or "").strip(),
                   "senales": _lista(pot.get("senales"), 4)} if isinstance(pot, dict) else None)
+    requisitos = []
+    for r in crudo.get("requisitos") or []:
+        if isinstance(r, dict) and r.get("tipo") in TIPOS_EXCLUYENTE:
+            cumple = str(r.get("cumple") or "").strip().lower()
+            requisitos.append({"tipo": r["tipo"], "cumple": cumple if cumple in ("si", "no", "dudoso") else "dudoso",
+                               "evidencia": str(r.get("evidencia") or "").strip()})
     return {
         "modelo": modelo(),
         "habilidades": alineadas,
@@ -185,6 +201,7 @@ def _limpiar(crudo: dict, habilidades: list[dict]) -> dict:
         "manejo_conflictos": str(crudo.get("manejo_conflictos") or "").strip(),
         "evidencia_en_linea": str(crudo.get("evidencia_en_linea") or "").strip(),
         "potencial": potencial,
+        "requisitos": requisitos,
         "recomendacion": str(crudo.get("recomendacion") or "").strip(),
     }
 
@@ -244,6 +261,7 @@ def consultar(vacante: dict, lider: dict | None, empresa: dict | None, candidato
         "cargo": vacante["cargo"],
         "area": vacante["area"],
         "cargo_tecnico": bool(vacante.get("tecnico")),
+        "requisitos_excluyentes": vacante.get("excluyentes") or None,
         "descripcion_cargo": vacante["descripcion"],
         "lider": {
             "nombre": lider.get("nombre"), "cargo": lider.get("cargo"),

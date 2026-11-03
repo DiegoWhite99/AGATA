@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS vacantes (
     peso_elemento REAL NOT NULL DEFAULT 10,
     peso_conflicto REAL NOT NULL DEFAULT 10,
     tecnico INTEGER NOT NULL DEFAULT 0,
+    excluyentes TEXT,  -- JSON: [{"tipo": "titulo"|"experiencia"|"proyectos", "texto": ...}]
     estado TEXT NOT NULL DEFAULT 'abierta',
     creado TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -114,7 +115,7 @@ CREATE TABLE IF NOT EXISTS perfiles_cache (
 );
 """
 
-JSON_COLS = {"carta", "resultado", "ia", "verificacion", "enlaces"}
+JSON_COLS = {"carta", "resultado", "ia", "verificacion", "enlaces", "excluyentes"}
 
 # Columnas agregadas después de la primera versión (para bases ya creadas).
 MIGRACIONES = [
@@ -141,6 +142,8 @@ MIGRACIONES = [
     ("habilidades", "tipo", "TEXT NOT NULL DEFAULT 'tecnica'"),
     # v9: cadena de mando: el jefe inmediato de cada líder (para la Red).
     ("lideres", "jefe_id", "INTEGER REFERENCES lideres(id) ON DELETE SET NULL"),
+    # v10: requisitos excluyentes del cargo (solo título, experiencia y proyectos).
+    ("vacantes", "excluyentes", "TEXT"),
 ]
 
 

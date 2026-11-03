@@ -345,6 +345,26 @@ def tipo_habilidad(nombre: str) -> str:
     return "blanda" if _BLANDA.search(_norm(nombre)) else "tecnica"
 
 
+# --- Nivel del cargo: 1 operativo, 2 táctico, 3 estratégico ----------------------------------
+
+_RANGO = {"operativo": 1, "tactico": 2, "estrategico": 3}
+_RANGO_POR_NOMBRE = [
+    (3, re.compile(r"\b(director\w*|gerente|vicerrector\w*|rector\w*|decan[oa])\b")),
+    (2, re.compile(r"\b(coordinador\w*|lider\w*|jefe|especialista)\b")),
+    (1, re.compile(r"\b(analista|auxiliar|asistente|tecnico|tecnologo|practicante|operari[oa])\b")),
+]
+
+
+def rango_cargo(cargo: str, perfil: dict | None = None) -> int | None:
+    """El nivel del cargo según su perfil institucional o, si no lo trae, según su nombre. None si no se sabe."""
+    if perfil and perfil.get("nivel"):
+        rango = _RANGO.get(_norm(perfil["nivel"]).split()[0])
+        if rango:
+            return rango
+    nombre = _norm(cargo)
+    return next((rango for rango, patron in _RANGO_POR_NOMBRE if patron.search(nombre)), None)
+
+
 def es_tecnico(*textos: str) -> bool:
     """Sugiere si un cargo es técnico (ingeniería, desarrollo, datos o IA) por su nombre y sus habilidades."""
     return bool(_TECNICO.search(_norm(" ".join(t or "" for t in textos))))

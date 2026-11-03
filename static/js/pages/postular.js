@@ -185,10 +185,14 @@ Promise.all([api.get(`/api/vacantes/${id}/publica`), iniciarNatal(form)])
         ENLACES = ENLACES_TECNICO;
     $$("[data-solo]", form).forEach((el) => (el.hidden = el.dataset.solo !== (v.tecnico ? "tecnico" : "general")));
     const req = v.requisitos;
-    if (req) {
+    if (req || v.excluyentes.length) {
         const caja = $("#post-requisitos");
         caja.hidden = false;
-        caja.innerHTML = [["Formación académica", req.formacion], ["Experiencia", req.experiencia], ["Conocimientos deseables", req.conocimientos]]
+        const indispensables = { titulo: "Indispensable · Título", experiencia: "Indispensable · Experiencia", proyectos: "Indispensable · Proyectos" };
+        caja.innerHTML = [
+            ...v.excluyentes.map((x) => [indispensables[x.tipo], x.texto]),
+            ...[["Formación académica", req?.formacion], ["Experiencia", req?.experiencia], ["Conocimientos deseables", req?.conocimientos]],
+        ]
             .filter(([, valor]) => valor)
             .map(([etiqueta, valor]) => `<div><dt>${etiqueta}</dt><dd>${esc(valor)}</dd></div>`)
             .join("");

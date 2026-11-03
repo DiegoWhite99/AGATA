@@ -1,5 +1,5 @@
 import { api, ApiError } from "../api.js";
-import { fichaConflicto, MODOS, panelAtributos, rejillaSinastria, TEMA_CORTO, tarjetaCarta, } from "../astro-ui.js";
+import { chipArquetipo, fichaConflicto, MODOS, panelAtributos, rejillaSinastria, TEMA_CORTO, tarjetaCarta, } from "../astro-ui.js";
 import { radar } from "../radar.js";
 import { $, $$, anillo, badgeDecision, barra, colorPuntaje, confirmar, esc, fecha, laurel, mostrarErrores, toast, vacio, } from "../ui.js";
 const raiz = $("#informe");
@@ -9,6 +9,41 @@ let pestana = "lider";
 let dicta = "postulante";
 const ESTADO_TXT = { cumple: "Cumple", parcial: "Parcial", brecha: "Por explorar", sin_lectura: "Sin lectura IA" };
 const EVIDENCIA_TXT = { directa: "Directa", deducida: "Deducida de proyectos", "sin evidencia": "Sin evidencia" };
+const NOMBRE_EXCLUYENTE = { titulo: "Título", experiencia: "Experiencia", proyectos: "Proyectos" };
+const CUMPLE_TXT = { si: "Cumple", no: "No cumple", dudoso: "Por validar", "sin verificar": "Sin verificar" };
+function seccionRequisitos() {
+    const reqs = datos.candidato.resultado.requisitos ?? [];
+    if (!reqs.length)
+        return "";
+    return `<section class="tarjeta requisitos-excl">
+      <header class="tarjeta-cab"><div><p class="eyebrow">Lo innegociable del cargo</p><h2>Requisitos excluyentes</h2></div></header>
+      <ul class="lista">${reqs.map((r) => `<li class="lista-item">
+          <div><strong class="lista-titulo">${NOMBRE_EXCLUYENTE[r.tipo]}</strong><span class="meta">${esc(r.texto)}</span>
+            ${r.evidencia ? `<p class="evidencia-ia">${esc(r.evidencia)}</p>` : ""}</div>
+          <span class="estado-req estado-req-${r.cumple.replace(" ", "-")}">${CUMPLE_TXT[r.cumple]}</span>
+        </li>`).join("")}</ul>
+      ${reqs.some((r) => r.cumple === "sin verificar") && datos.ia.activa
+        ? `<p class="meta">Algún requisito aún no se verificó: reconsulta al oráculo.</p>` : ""}
+    </section>`;
+}
+function seccionRedireccion() {
+    const r = datos.redireccion;
+    if (!r)
+        return "";
+    return `<section class="tarjeta redireccion">
+      <div>
+        <p class="eyebrow">Para no perder el talento</p>
+        <h2>↪ Podría encajar mejor en «${esc(r.cargo)}»</h2>
+        <p class="parrafo">${esc(r.area)}. Su perfil profesional (hoja de vida, habilidades y trabajo en línea) encaja
+          <strong>${r.perfil.toFixed(0)}%</strong> allá frente a <strong>${r.perfil_aqui.toFixed(0)}%</strong> aquí, comparado sin la IA.
+          La astrología no decide esta sugerencia. Si lo postulas, el oráculo lo evalúa frente a ese cargo y su líder.</p>
+      </div>
+      <div class="acciones-wrap no-print">
+        <a class="btn btn-sec btn-sm" href="/vacantes/${r.vacante_id}">Ver el cargo</a>
+        <button class="btn btn-sm" id="btn-redirigir" data-vacante="${r.vacante_id}">Postularlo también a ese cargo</button>
+      </div>
+    </section>`;
+}
 const COMPONENTES = [
     { clave: "lider", nombre: "Sinastría con el líder" },
     { clave: "empresa", nombre: "Sinastría con la empresa" },
@@ -353,6 +388,7 @@ function pintar() {
       <div>
         <p class="eyebrow">Informe de match astral · ${fecha(c.creado)}</p>
         <h1>${esc(c.nombre)}</h1>
+        ${chipArquetipo(c.carta, true)}
         <p class="lead">${esc(v.cargo)} · ${esc(v.area)} · Líder: ${esc(l.nombre)}${e ? ` · ${esc(e.nombre)}` : ""}</p>
         <p class="meta">${esc(c.email)}${c.telefono ? ` · ${esc(c.telefono)}` : ""}</p>
       </div>
@@ -363,12 +399,17 @@ function pintar() {
       </div>
     </header>
 
+    ${r.alertas?.length ? `<div class="alertas-informe" role="note">${r.alertas
+        .map((a) => `<p class="alerta alerta-${a.clave}">⚠ ${esc(a.texto)}</p>`).join("")}</div>` : ""}
+
     <section class="tarjeta veredicto">
       <div class="corona">${laurel(230)}${anillo(r.puntaje, 150, 10, "var(--gold)")}</div>
       <div class="veredicto-texto">
         <p class="eyebrow">Lectura del oráculo · puesto ${datos.ranking.posicion} de ${datos.ranking.total} en esta vacante</p>
-        <h2>${badgeDecision(c.decision_lider)}</h2>
-        <p>Nadie queda descartado: el puntaje ordena a los postulantes y el líder decide quién avanza.</p>
+        <h2>${badgeDecision(c.decision_lider)}${r.cumple_requisitos === false ? ` <span class="badge badge-no-cumple">No cumple requisitos</span>` : ""}</h2>
+        <p>${r.cumple_requisitos === false
+        ? "No cumple un requisito excluyente del cargo: queda al final del ranking y el líder confirma."
+        : "Nadie queda descartado: el puntaje ordena a los postulantes y el líder decide quién avanza."}</p>
         <div class="lecturas">
           ${lectura("Perfil profesional", "Hoja de vida + IA", r.lecturas.profesional)}
           ${lectura("Afinidad astral", "Líder, empresa, elemento y conflictos", r.lecturas.astral)}
@@ -381,6 +422,10 @@ function pintar() {
         ${COMPONENTES.map((k) => componente(k.nombre, r.componentes[k.clave] ?? null, r.pesos[k.clave] ?? 0, totalPesos)).join("")}
       </div>
     </section>
+
+    ${seccionRequisitos()}
+
+    ${seccionRedireccion()}
 
     <section class="tarjeta">
       <h2>Las tres cartas</h2>
@@ -518,6 +563,20 @@ raiz.addEventListener("click", async (e) => {
     }
     if (t.closest("#btn-imprimir"))
         window.print();
+    const redirigir = t.closest("#btn-redirigir");
+    if (redirigir) {
+        redirigir.disabled = true;
+        redirigir.textContent = "El oráculo lo está evaluando…";
+        try {
+            const nuevo = await api.post(`/api/candidatos/${id}/postular-a/${redirigir.dataset.vacante}`, {});
+            location.href = `/candidatos/${nuevo.id}?nuevo=1`;
+        }
+        catch (err) {
+            toast(err instanceof ApiError ? err.message : "No se pudo postular a ese cargo.", "error");
+            redirigir.disabled = false;
+            redirigir.textContent = "Postularlo también a ese cargo";
+        }
+    }
     const oraculo = t.closest("#btn-oraculo");
     if (oraculo)
         await reconsultar(oraculo);

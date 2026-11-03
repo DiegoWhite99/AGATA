@@ -7,6 +7,8 @@ import type { CandidatoFila, Vacante } from "../types.js";
 
 type EstadoDecision = "pendiente" | "aprobado" | "rechazado";
 
+const NOMBRE_EXCLUYENTE = { titulo: "Título", experiencia: "Experiencia", proyectos: "Proyectos" };
+
 const raiz = $("#vacante");
 const id = Number(raiz.dataset.id);
 let vac: Vacante;
@@ -22,14 +24,20 @@ const puntos = (n: number) =>
 
 function filaCandidato(c: CandidatoFila): string {
   // El puesto es el del ranking completo, aunque haya un filtro activo.
-  return `<tr>
+  const alertas = (c.alertas ?? []).map((a) => `<span class="chip chip-alerta chip-alerta-${a.clave}" title="${esc(a.texto)}">⚠ ${esc(a.texto)}</span>`).join("");
+  const r = c.redireccion;
+  return `<tr class="${c.cumple_requisitos === false ? "fila-no-cumple" : ""}">
     <td class="num">${vac.candidatos.indexOf(c) + 1}</td>
-    <td><a href="/candidatos/${c.id}" class="lista-titulo">${esc(c.nombre)}</a><span class="meta">${esc(c.email)} · ${fecha(c.creado)}</span></td>
+    <td><a href="/candidatos/${c.id}" class="lista-titulo">${esc(c.nombre)}</a>
+      ${c.arquetipo ? `<span class="rol-mini" style="--c:${COLOR_ELEMENTO[c.arquetipo.elemento]}">✦ ${esc(c.arquetipo.nombre)}</span>` : ""}
+      <span class="meta">${esc(c.email)} · ${fecha(c.creado)}</span>
+      ${alertas ? `<div class="alertas-fila">${alertas}</div>` : ""}</td>
     <td>${c.signo_sol ? `☉ ${esc(c.signo_sol)}` : "—"}</td>
     ${celda(c.lecturas?.profesional)}${celda(c.lecturas?.astral)}
     <td class="celda-puntaje"><strong class="puntaje-neutro">${c.puntaje.toFixed(1)}%</strong>${barra(c.puntaje, "var(--gold)")}</td>
     <td>${c.potencial != null && c.potencial >= 70 ? `<span class="chip chip-potencial">✦ Potencial alto · ${c.potencial}%</span>` : ""}
-      ${(c.destaca ?? []).map((d) => `<span class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</span>`).join("") || "—"}</td>
+      ${(c.destaca ?? []).map((d) => `<span class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</span>`).join("") || "—"}
+      ${r ? `<a class="chip chip-redireccion" href="/vacantes/${r.vacante_id}" title="Perfil profesional: ${r.perfil.toFixed(0)}% allá frente a ${r.perfil_aqui.toFixed(0)}% aquí (sin IA)">↪ Encaja mejor en ${esc(r.cargo)}</a>` : ""}</td>
     <td>${badgeDecision(c.decision_lider)}</td>
     <td><a class="btn btn-sec btn-sm" href="/candidatos/${c.id}">Informe</a></td>
   </tr>`;
@@ -94,6 +102,9 @@ function pintar(): void {
       <section class="tarjeta">
         <h2>Descripción del cargo</h2>
         <p class="parrafo">${esc(vac.descripcion)}</p>
+        ${vac.excluyentes?.length ? `<h3 class="subtitulo">Requisitos excluyentes</h3>
+          <ul class="lista-oraculo">${vac.excluyentes.map((x) => `<li><strong>${NOMBRE_EXCLUYENTE[x.tipo]}:</strong> ${esc(x.texto)}</li>`).join("")}</ul>
+          <p class="meta">Quien no los cumple queda marcado y al final del ranking. Licencias y otros documentos no cuentan.</p>` : ""}
         ${vac.perfil
           ? `<h3 class="subtitulo">Qué espera el cargo del nuevo integrante</h3>${expectativasCargo(vac.perfil)}`
           : `<h3 class="subtitulo">Qué espera el líder de su equipo</h3>
@@ -165,7 +176,8 @@ function pintar(): void {
           <button class="filtro f-rechazado" role="tab" data-f="rechazado" aria-selected="false">Rechazados (${cuenta("rechazado")})</button>
         </div>
       </header>
-      <p class="meta">Nadie queda descartado: el puntaje ordena a los postulantes y el líder decide quién avanza.</p>
+      <p class="meta">Nadie queda descartado por el puntaje: ordena a los postulantes y el líder decide quién avanza.
+        Solo quien no cumple un requisito excluyente queda al final.</p>
       <div id="tabla-candidatos"></div>
     </section>`;
   pintarCandidatos();
