@@ -1,10 +1,18 @@
 # Desplegar AGATA gratis: PythonAnywhere + Firebase
 
-Esta guía monta AGATA en internet **sin pagar nada y sin tarjeta**. Haz los pasos en orden.
+Esta guía monta AGATA en internet **sin pagar nada y sin tarjeta**. Es la ruta con la que se montó la demo actual;
+haz los pasos en orden.
+
+| Despliegue actual | |
+|---|---|
+| Dirección | <https://diegowhite99.pythonanywhere.com> |
+| Servidor | PythonAnywhere, cuenta gratuita `diegowhite99`, Python 3.13 |
+| Login | Firebase Authentication, proyecto `agata-bdfe0`, plan Spark |
+| Código | `/home/diegowhite99/AGATA`, clonado de <https://github.com/DiegoWhite99/AGATA> |
 
 > **Producción arranca limpia.** El servidor recibe solo el código de GitHub. `agata.db` y `uploads/` tienen los
-> datos de la demo (líderes de ejemplo y postulaciones de prueba) y no están en git, así que no se copian. Lo único
-> que subes desde tu computador son los perfiles reales de `perfiles/` (paso 6).
+> datos de la demo local (líderes de ejemplo y postulaciones de prueba) y no están en git, así que no se copian. Lo
+> único que se sube desde tu computador son los perfiles reales de `perfiles/` (paso 6).
 
 ## Qué vas a montar
 
@@ -17,144 +25,173 @@ Esta guía monta AGATA en internet **sin pagar nada y sin tarjeta**. Haz los pas
 
 - **PythonAnywhere** (cuenta gratuita *Beginner*) corre AGATA con su base y sus archivos en un disco que no se borra.
 - **Firebase Authentication**, en el plan gratuito **Spark**, muestra la ventana de Google y confirma quién es la
-  persona. **No actives Blaze:** aquí no hace falta.
+  persona. **No actives Blaze:** aquí no hace falta. Firebase Hosting tampoco: el plan gratis solo sirve páginas
+  estáticas, y AGATA necesita su servidor en Python.
 - **Qué ve cada quien lo decide AGATA:** el **administrador** gestiona todo, el **líder** ve los cargos de su cadena de
   mando y decide sobre sus postulantes, y la postulación (`/postular/<id>`) es pública.
 
 ## Límites de la cuenta gratuita
 
-- **512 MB de disco**, para el código, las librerías, la base y las hojas de vida. Alcanza para unas 150 a 250 hojas
-  de vida, según su tamaño.
+- **512 MB de disco**, para el código, las librerías (unos 75 MB), la base y las hojas de vida. Alcanza para unas
+  150 a 250 hojas de vida, según su tamaño.
 - **Internet solo hacia sitios permitidos:** Groq, GitHub y Google sí pasan. Los portafolios en general no, así que
   el informe dirá que no se pudo leer el portafolio. El oráculo igual ve el enlace, y el líder puede abrirlo.
 - **Un solo proceso:** las peticiones se atienden una a la vez. Una postulación con IA tarda entre 5 y 20 segundos, y
-  mientras tanto los demás esperan. Para un piloto está bien.
-- **Hay que renovarlo cada 3 meses** con un clic (paso 9). PythonAnywhere avisa por correo antes.
+  mientras tanto los demás esperan. Para una demo está bien.
+- **Hay que renovarlo cada mes** con un clic (paso 9). PythonAnywhere avisa por correo una semana antes.
 - **La dirección es `TU_USUARIO.pythonanywhere.com`.** Un dominio propio, como `agata.cun.edu.co`, requiere plan pago.
 
 ## 1. Firebase: login con Google (plan Spark)
 
-En <https://console.firebase.google.com>, en tu proyecto **Agata**:
+En <https://console.firebase.google.com>, crea el proyecto (o abre **Agata**). Google Analytics no hace falta.
 
-1. **Seguridad** → **Authentication** → **Comenzar** → **Método de acceso** → **Google** → **Habilitar**. Elige el
-   correo de asistencia y pulsa **Guardar**.
-2. Página principal del proyecto → **+ Agregar app** → ícono **`</>`** (web). Apodo «AGATA web». **No** marques
-   Firebase Hosting. Pulsa **Registrar app**.
-3. Del bloque `firebaseConfig`, copia **`apiKey`** y **`projectId`**. No son secretos: solo identifican el proyecto.
-   El ID también está en **Configuración** → **General**.
+1. Barra izquierda: **Seguridad** → **Authentication** → **Comenzar** → **Método de acceso** → **Google** →
+   **Habilitar**. En el recuadro que aparece:
+   - **Nombre público del proyecto:** `AGATA`. Es lo que verán en la ventana de Google («Continuar a AGATA»).
+   - **Correo electrónico de asistencia:** elige tu correo.
+   - Pulsa **Guardar**. Lo demás de esa pantalla (huella SHA-1, que es solo para Android, entidades seguras,
+     configuración del SDK web y SMS) no se toca.
+2. Página principal del proyecto (**Descripción general**) → **+ Agregar app** → el ícono **`</>`** (web). Apodo
+   «AGATA web». **No** marques Firebase Hosting. Pulsa **Registrar app**.
+3. Del bloque `firebaseConfig` que aparece, copia **`apiKey`** y **`projectId`**. No son secretos: solo identifican
+   el proyecto, y la página de login de AGATA los muestra de todas formas. No hace falta instalar nada de lo que
+   sugiere (`npm install firebase`), porque AGATA ya lo trae.
 
-La dirección de PythonAnywhere se autoriza en el paso 7, cuando ya tengas tu usuario.
+**No toques** **Configuración** → **Uso y facturación** (es para pasar a Blaze) ni **Cuentas de servicio** (genera
+llaves privadas que aquí no se usan).
 
 ## 2. Crea la cuenta de PythonAnywhere
 
-En <https://www.pythonanywhere.com> → **Pricing & signup** → **Create a Beginner account** (gratis, sin tarjeta).
+En <https://www.pythonanywhere.com> → **Pricing & signup** → **Create a Beginner account** (gratis, sin tarjeta) y
+confirma tu correo.
 
-El **usuario** que elijas será la dirección de AGATA: `https://TU_USUARIO.pythonanywhere.com`. Elige uno claro,
-por ejemplo `agatacun`.
+El **usuario** que elijas será la dirección de AGATA: `https://TU_USUARIO.pythonanywhere.com`.
 
 ## 3. Trae el código e instala
 
-En PythonAnywhere: **Consoles** → **Bash**. En esa consola:
+En el **Dashboard**, bajo **New console**, pulsa **`$ Bash`**. Se abre una terminal negra. Pega esta línea y pulsa
+Enter:
 
 ```bash
-git clone https://github.com/DiegoWhite99/AGATA.git
-cd AGATA
-./instalar.sh
-python3 --version          # anota la versión (por ejemplo 3.10): la usarás en el paso 5
+git clone https://github.com/DiegoWhite99/AGATA.git && cd AGATA && ./instalar.sh && python3 --version
 ```
 
-`instalar.sh` crea el entorno `.venv`, instala las librerías y crea el archivo `.env` vacío. En PythonAnywhere no hay
-`npm`, así que usa el JavaScript ya compilado; es normal.
+Tarda 2 o 3 minutos. Al final dice «✦ Listo» y muestra la versión de Python (por ejemplo `Python 3.13.1`): anótala
+para el paso 5. Que diga «npm no está instalado» es normal: usa el JavaScript ya compilado.
 
 ## 4. Configura el `.env` del servidor
 
-Primero genera la clave con la que AGATA firma las sesiones. La generas tú, en la misma consola:
+En la misma consola, dos pegadas.
+
+**Pegada 1:** pregunta el correo de Google del primer administrador (el tuyo) y escribe la configuración de Firebase.
+Cambia los dos valores de Firebase por los tuyos del paso 1:
 
 ```bash
-python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+read -rp "Tu correo de Google: " C && printf 'FIREBASE_API_KEY=TU_API_KEY\nFIREBASE_PROJECT_ID=TU_PROJECT_ID\nAGATA_ADMINS=%s\n' "$C" > .env
 ```
 
-Copia lo que salga y abre el archivo:
+**Pegada 2:** genera la clave con la que AGATA firma las sesiones, pide la clave de Groq
+(<https://console.groq.com/keys>) y protege el archivo. Las dos claves quedan solo en tu servidor: no se muestran en
+pantalla ni quedan en el historial.
 
 ```bash
-nano .env
+echo "AGATA_SECRET_KEY=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')" >> .env && read -rsp "Clave de Groq: " K && echo "GROQ_API_KEY=$K" >> .env; unset K; echo; chmod 600 .env; cut -d= -f1 .env
 ```
 
-Completa estas líneas (con `Ctrl+O`, `Enter` guardas y con `Ctrl+X` sales):
+Al final muestra solo los nombres, sin los valores:
 
-| Variable | Valor |
-|---|---|
-| `GROQ_API_KEY` | tu clave de Groq (<https://console.groq.com/keys>). Sin ella, AGATA funciona sin el componente de IA. |
-| `FIREBASE_API_KEY` | la `apiKey` del paso 1 |
-| `FIREBASE_PROJECT_ID` | el `projectId` del paso 1 |
-| `AGATA_ADMINS` | tu correo de Google, y el de quien más deba ser administrador, separados por comas |
-| `AGATA_SECRET_KEY` | la clave que acabas de generar |
-| `AGATA_SIN_LOGIN` | **vacío**. Igual no tiene efecto en el servidor. |
-
-Luego protege el archivo, para que solo tu usuario pueda leerlo:
-
-```bash
-chmod 600 .env
+```
+FIREBASE_API_KEY
+FIREBASE_PROJECT_ID
+AGATA_ADMINS
+AGATA_SECRET_KEY
+GROQ_API_KEY
 ```
 
-`GITHUB_TOKEN` es opcional. Sin él, GitHub permite unas 60 consultas por hora, y cada postulante usa entre 2 y 5. Si
-lo quieres, créalo tú en GitHub → Settings → Developer settings → Fine-grained tokens, solo de lectura pública.
+Sin clave de Groq, AGATA funciona igual, sin el componente de IA (deja la respuesta vacía y pulsa Enter).
+`GITHUB_TOKEN` es opcional: sin él, GitHub permite unas 60 consultas por hora, y cada postulante usa entre 2 y 5.
 
 ## 5. Crea la web app
 
-En PythonAnywhere: pestaña **Web** → **Add a new web app** → **Next** → **Manual configuration (including
-virtualenvs)** → la **misma versión de Python** del paso 3 → **Next**.
+Abre la pestaña **Web** (en el menú de arriba, o en `https://www.pythonanywhere.com/user/TU_USUARIO/webapps/`):
 
-En la página de tu web app:
+1. **Add a new web app** → **Next** (avisa que la dirección será `TU_USUARIO.pythonanywhere.com`).
+2. **Manual configuration (including virtualenvs)**. No elijas «Flask»: esa opción crea una app de ejemplo.
+3. La **misma versión de Python** del paso 3 (por ejemplo **Python 3.13**) → **Next**.
 
-1. **Code:**
-   - **Source code** y **Working directory**: `/home/TU_USUARIO/AGATA`.
-2. **WSGI configuration file:** abre el enlace (`/var/www/TU_USUARIO_pythonanywhere_com_wsgi.py`), **borra todo** lo
-   que trae, pega esto y pulsa **Save**:
-   ```python
-   import sys
+Queda abierta la página de configuración de tu web app. Para cambiar cada campo, haz clic en el texto (rojo o
+subrayado), escribe y pulsa ✓ o Enter:
 
-   RUTA = "/home/TU_USUARIO/AGATA"
-   if RUTA not in sys.path:
-       sys.path.insert(0, RUTA)
+| Sección | Campo | Valor |
+|---|---|---|
+| **Code** | Source code | `/home/TU_USUARIO/AGATA` |
+| **Code** | Working directory | `/home/TU_USUARIO/AGATA` |
+| **Virtualenv** | Enter path to a virtualenv | `/home/TU_USUARIO/AGATA/.venv` (con el punto) |
+| **Static files** | URL / Directory | `/static/` / `/home/TU_USUARIO/AGATA/static` |
+| **Security** | Force HTTPS | **Enabled** (la cookie de sesión solo viaja por HTTPS) |
 
-   from app import app as application  # noqa: E402
-   ```
-3. **Virtualenv:** `/home/TU_USUARIO/AGATA/.venv`.
-4. **Static files:** URL `/static/`, Directory `/home/TU_USUARIO/AGATA/static`.
-5. **Security:** **Force HTTPS** en *Enabled*. La cookie de sesión solo viaja por HTTPS.
-6. Arriba, el botón verde **Reload**.
+**Archivo WSGI:** en **Code**, abre el enlace `/var/www/TU_USUARIO_pythonanywhere_com_wsgi.py`. En el editor, borra
+todo (`Ctrl+A` y Suprimir), pega esto y pulsa **Save**:
+
+```python
+import sys
+
+RUTA = "/home/TU_USUARIO/AGATA"
+if RUTA not in sys.path:
+    sys.path.insert(0, RUTA)
+
+from app import app as application  # noqa: E402,F401
+```
+
+Si el editor marca un triángulo amarillo en la última línea, es solo un aviso suyo: PythonAnywhere usa la variable
+`application`.
+
+Para terminar, arriba en la pestaña **Web**, pulsa el botón verde **Reload TU_USUARIO.pythonanywhere.com**.
 
 ## 6. Sube los perfiles de cargo
 
 Los perfiles reales no están en GitHub, porque traen nombres de personas. Tienes dos formas de subirlos:
 
 - Pestaña **Files** → entra a `AGATA/` → crea la carpeta `perfiles` → **Upload a file** con cada perfil.
-- O, más adelante, desde AGATA: **Perfiles** → agregar perfil.
+- O desde AGATA, ya con sesión de administrador: **Perfiles** → agregar perfil.
 
 ## 7. Autoriza tu dirección en Firebase
 
-En Firebase: **Seguridad** → **Authentication** → **Configuración** → **Dominios autorizados** → **Agregar dominio**
-→ `TU_USUARIO.pythonanywhere.com`.
+Sin este paso, el login dice «Este dominio no está autorizado en Firebase».
+
+En Firebase: **Authentication** (también aparece en la barra izquierda, en «Accesos directos a proyectos») → pestaña
+**Configuración** → **Dominios autorizados** → **Agregar un dominio** → `TU_USUARIO.pythonanywhere.com`. Va sin
+`https://` y sin `/` al final. Debe quedar en la lista con tipo **Custom**, junto a `localhost` y los de Firebase.
 
 ## 8. Primer ingreso y usuarios
 
-1. Abre `https://TU_USUARIO.pythonanywhere.com` → **Entrar con Google** con un correo de `AGATA_ADMINS`. Entras como
+1. Abre `https://TU_USUARIO.pythonanywhere.com` → **Entrar con Google** con el correo de `AGATA_ADMINS`. Entras como
    administrador.
 2. Arma la base real, que arranca vacía: **Empresa** (su carta) → **Líderes** (con su correo y su jefe inmediato) →
    **Perfiles** → **Cargos y vacantes**.
-3. **Usuarios** → **Dar acceso**: el correo de cada líder y su ficha de líder. Esa ficha define qué ve: los cargos de
-   su cadena de mando. Si el correo coincide con el de la ficha, se liga solo.
-4. Comparte con los postulantes el link de cada vacante (**Copiar link**). No piden iniciar sesión, y al final ven
-   una confirmación, sin el puntaje.
+3. Comparte con los postulantes el link de cada vacante (**Copiar link**). No piden iniciar sesión, y al final ven una
+   confirmación, sin el puntaje.
+
+**Dar acceso a otra persona.** Siempre entra con su cuenta Google; AGATA no crea contraseñas.
+
+- **Como administradora, desde la consola.** Sirve aunque nadie haya entrado aún. Agrega su correo a `AGATA_ADMINS`
+  (separados por comas) y pulsa **Reload** en la pestaña **Web**:
+  ```bash
+  sed -i 's/^AGATA_ADMINS=.*/AGATA_ADMINS=tu.correo@gmail.com,otra.persona@cun.edu.co/' ~/AGATA/.env && grep ^AGATA_ADMINS ~/AGATA/.env
+  ```
+- **Desde AGATA** → **Usuarios** → **Dar acceso**, con su correo y su rol:
+  - **Administrador**: gestiona todo.
+  - **Líder**: ve los cargos de su cadena de mando. Para este rol, antes hay que crear su ficha en **Líderes**. Si el
+    correo coincide con el de la ficha, se liga solo.
 
 Una sesión dura 12 horas. **Salir** cierra todas las sesiones de esa persona. **Quitar acceso** la saca en su siguiente
-acción.
+acción. Si una cuenta `@cun.edu.co` ve «Acceso bloqueado» en la ventana de Google, es una política de la cuenta
+Google de la CUN, no de AGATA: la habilita TI.
 
 ## 9. Mantenerlo encendido
 
-En la cuenta gratuita, la web app se apaga si nadie la renueva. Cada 3 meses, entra a la pestaña **Web** y pulsa
-**Run until 3 months from today**. PythonAnywhere te avisa por correo una semana antes.
+En la cuenta gratuita, la web app se apaga si nadie la renueva. **Cada mes**, entra a la pestaña **Web** y pulsa el
+botón amarillo **Run until 1 month from today**. PythonAnywhere te avisa por correo una semana antes de apagarla.
 
 ## 10. Actualizar la versión
 
@@ -196,11 +233,12 @@ Para probar el login real en `http://localhost:5000`:
 |---|---|
 | «Something went wrong :-(» al abrir la web | Mira **Web** → **Log files** → *error log*. Lo más común es una ruta mal escrita en el archivo WSGI o en *Virtualenv*, o una versión de Python distinta a la del `.venv`. |
 | «El inicio de sesión aún no está configurado» | Falta alguna variable en `.env` (la página dice cuál). Corrígela y pulsa **Reload**. |
-| «Este dominio no está autorizado en Firebase» | Falta el paso 7. |
+| «Este dominio no está autorizado en Firebase» | Falta el paso 7, o Firebase aún no lo aplica: espera un minuto y recarga. |
 | «… no tiene acceso a AGATA» | El correo no está en **Usuarios** ni en `AGATA_ADMINS`. |
+| Cambié el `.env` y no pasa nada | Hay que pulsar **Reload** en la pestaña **Web**. |
 | Entras con Google y vuelves a la pantalla de login | Abriste la dirección con `http://`. Activa **Force HTTPS** (paso 5) y usa `https://`. |
 | No aparecen los perfiles | Deben estar en `/home/TU_USUARIO/AGATA/perfiles/`. |
-| «Disk quota exceeded» | Borra respaldos viejos del servidor o postulaciones que ya no sirvan. Mira el uso en la pestaña **Files**. |
+| «Disk quota exceeded» | Borra respaldos viejos del servidor o postulaciones que ya no sirvan. Mira el uso en el **Dashboard**. |
 
 ## Antes de abrir convocatorias reales
 

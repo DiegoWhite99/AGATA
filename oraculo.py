@@ -112,13 +112,15 @@ Reglas:
 
 
 def cargar_env(ruta: Path) -> None:
-    """Carga variables KEY=VALOR de un archivo .env sin pisar las ya definidas."""
+    """Carga variables KEY=VALOR de un archivo .env sin pisar las ya definidas. Las vacías se ignoran, así una
+    línea `CLAVE=` sin llenar no tapa la misma clave escrita más abajo."""
     if not ruta.exists():
         return
     for linea in ruta.read_text(encoding="utf-8").splitlines():
         clave, sep, valor = linea.strip().partition("=")
-        if sep and clave and not clave.startswith("#"):
-            os.environ.setdefault(clave.strip(), valor.strip().strip('"').strip("'"))
+        valor = valor.strip().strip('"').strip("'")
+        if sep and clave and valor and not clave.startswith("#"):
+            os.environ.setdefault(clave.strip(), valor)
 
 
 def activo() -> bool:
