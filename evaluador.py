@@ -110,19 +110,31 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
         necesarias = min(3, len(claves))
         cv_claves = min(100.0, len(encontradas) / necesarias * 100) if necesarias else 0.0
         lectura_ia = ia_hab.get(hab["nombre"])
-        # La IA lee el CV con criterio semántico; las palabras clave quedan como respaldo.
-        cv = 0.4 * cv_claves + 0.6 * lectura_ia["puntaje"] if lectura_ia else cv_claves
+        blanda = hab.get("tipo") == "blanda"
+        # La IA lee la hoja de vida y los proyectos con criterio semántico. Las palabras clave solo
+        # pueden sumar, y en las habilidades blandas no cuentan: nadie las escribe al pie de la letra.
+        if lectura_ia:
+            cv = lectura_ia["puntaje"] if blanda else max(lectura_ia["puntaje"], 0.4 * cv_claves + 0.6 * lectura_ia["puntaje"])
+        else:
+            cv = None if blanda else cv_claves  # sin IA, una habilidad blanda no se puede leer: queda fuera
         requerido = hab["nivel"] * 20.0
-        cobertura = min(100.0, cv / requerido * 100)
-        estado = "cumple" if cobertura >= 90 else "parcial" if cobertura >= 60 else "brecha"
-        suma_peso += hab["peso"]
-        cobertura_total += hab["peso"] * cobertura
+        if cv is None:
+            cobertura, estado = None, "sin_lectura"
+        else:
+            cobertura = min(100.0, cv / requerido * 100)
+            estado = "cumple" if cobertura >= 90 else "parcial" if cobertura >= 60 else "brecha"
+            suma_peso += hab["peso"]
+            cobertura_total += hab["peso"] * cobertura
         detalle.append({
-            "nombre": hab["nombre"], "peso": hab["peso"], "nivel": hab["nivel"],
-            "requerido": requerido, "cv": round(cv, 1), "cv_claves": round(cv_claves, 1),
+            "nombre": hab["nombre"], "peso": hab["peso"], "nivel": hab["nivel"], "tipo": "blanda" if blanda else "tecnica",
+            "requerido": requerido, "cv": round(cv, 1) if cv is not None else None, "cv_claves": round(cv_claves, 1),
             "cv_ia": lectura_ia["puntaje"] if lectura_ia else None,
             "evidencia_ia": lectura_ia["evidencia"] if lectura_ia else None,
-            "cobertura": round(cobertura, 1), "estado": estado, "claves_encontradas": encontradas,
+            # De dónde sale la nota: directa (la hoja de vida lo dice), deducida (los proyectos lo muestran) o sin evidencia.
+            "evidencia_tipo": lectura_ia.get("tipo_evidencia") if lectura_ia else None,
+            "fuente": lectura_ia.get("fuente") if lectura_ia else None,
+            "cobertura": round(cobertura, 1) if cobertura is not None else None, "estado": estado,
+            "claves_encontradas": encontradas,
         })
 
     sin_lider = (astro.sinastria(carta_cand, carta_lider, nombres["candidato"], nombres["lider"])
@@ -151,12 +163,15 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
     # Lo más fuerte de cada postulante, sea cual sea su puntaje total.
     destaca = [k for k in sorted(componentes, key=lambda k: -(componentes[k] or 0)) if pesos[k]][:2]
 
-    fortalezas = [h["nombre"] for h in sorted(detalle, key=lambda h: -h["cv"]) if h["estado"] == "cumple"]
-    brechas = [h["nombre"] for h in sorted(detalle, key=lambda h: h["cobertura"]) if h["estado"] == "brecha"]
+    fortalezas = [h["nombre"] for h in sorted(detalle, key=lambda h: -(h["cv"] or 0)) if h["estado"] == "cumple"]
+    brechas = [h["nombre"] for h in sorted(detalle, key=lambda h: h["cobertura"] or 0) if h["estado"] == "brecha"]
+    # El potencial (capacidad de crecer) es una lectura aparte del oráculo IA: no entra en el puntaje.
+    potencial = ia.get("potencial") if ia_ok else None
 
     return {
         "puntaje": round(final, 1),
         "lecturas": lecturas,
+        "potencial": potencial,
         "destaca": [{"clave": k, "nombre": NOMBRES_COMPONENTE[k], "puntaje": componentes[k]} for k in destaca],
         "componentes": componentes,
         "pesos": pesos,
@@ -170,7 +185,7 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
         "experiencia_anios": anios_experiencia(texto),
         "nivel_educativo": nivel_educativo(texto),
         "cv_palabras": len(texto.split()),
-        "recomendacion": _recomendacion(componentes, lecturas, destaca, brechas, nombres),
+        "recomendacion": _recomendacion(componentes, lecturas, destaca, brechas, potencial, nombres),
     }
 
 
@@ -186,12 +201,16 @@ def _y(items: list[str]) -> str:
     return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " y " + items[-1]
 
 
-def _recomendacion(comp: dict, lecturas: dict, destaca: list[str], brechas: list[str], nombres: dict) -> str:
+def _recomendacion(comp: dict, lecturas: dict, destaca: list[str], brechas: list[str], potencial: dict | None,
+                   nombres: dict) -> str:
     """Lo más fuerte del postulante y lo que conviene explorar, sin descartar a nadie."""
     partes = []
     if destaca:
         fuertes = [f"{_FRASE_COMPONENTE[k].format(**nombres)} ({comp[k]:.0f}%)" for k in destaca]
         partes.append(f"Lo más fuerte de {nombres['candidato']} para este cargo es {_y(fuertes)}.")
+    if potencial and potencial.get("puntaje", 0) >= 70:
+        partes.append(f"El oráculo ve en {nombres['candidato']} un potencial de crecimiento alto "
+                      f"({potencial['puntaje']}%): vale la pena conocerlo aunque su experiencia formal sea corta.")
     if lecturas["profesional"] is not None and lecturas["astral"] is not None:
         partes.append(f"Perfil profesional: {lecturas['profesional']:.0f}%; "
                       f"afinidad astral: {lecturas['astral']:.0f}%.")

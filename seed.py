@@ -6,6 +6,7 @@ from pathlib import Path
 
 import astro
 import evaluador
+import perfiles
 from db import DB_PATH, connect, init_db, rows_to_list
 
 UPLOADS = Path(__file__).parent / "uploads"
@@ -133,8 +134,8 @@ def sembrar(con) -> None:
     vid = con.execute(f"INSERT INTO vacantes ({', '.join(vac)}) VALUES ({', '.join('?' * len(vac))})",
                       tuple(vac.values())).lastrowid
     con.executemany(
-        "INSERT INTO habilidades (vacante_id, nombre, peso, nivel, palabras_clave) VALUES (?,?,?,?,?)",
-        [(vid, *h) for h in HABILIDADES])
+        "INSERT INTO habilidades (vacante_id, nombre, peso, nivel, palabras_clave, tipo) VALUES (?,?,?,?,?,?)",
+        [(vid, *h, perfiles.tipo_habilidad(h[0])) for h in HABILIDADES])
     habilidades = rows_to_list(con.execute("SELECT * FROM habilidades WHERE vacante_id=?", (vid,)))
     vac["id"] = vid
 

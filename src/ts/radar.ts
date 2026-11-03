@@ -68,6 +68,8 @@ export function radar(ejes: string[], series: SerieRadar[], opts: OpcionesRadar 
       .join("")}</text>`;
   });
 
+  // Con varias series el relleno baja para que se vean todas las formas superpuestas.
+  const relleno = series.length > 1 ? 0.12 : 0.22;
   const poligonos = series
     .map((s) => {
       const pts = s.valores.map((v, i) => punto(i, v).join(",")).join(" ");
@@ -78,7 +80,7 @@ export function radar(ejes: string[], series: SerieRadar[], opts: OpcionesRadar 
                     <title>${esc(s.nombre)} · ${esc(ejes[i])}: ${v.toFixed(0)}</title></circle>`;
         })
         .join("");
-      return `<polygon points="${pts}" fill="${s.color}" fill-opacity="${s.punteada ? 0.04 : 0.22}"
+      return `<polygon points="${pts}" fill="${s.color}" fill-opacity="${s.punteada ? 0.04 : relleno}"
                 stroke="${s.color}" stroke-width="2.2" ${s.punteada ? 'stroke-dasharray="6 5"' : ""}
                 stroke-linejoin="round"/>${s.punteada ? "" : puntos}`;
     })

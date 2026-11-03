@@ -20,7 +20,8 @@ let vacantes = [];
 let filtro = "todas";
 let editandoId = null;
 let habilidades = [];
-const nuevaHabilidad = () => ({ nombre: "", peso: 3, nivel: 3, palabras_clave: "" });
+const nuevaHabilidad = () => ({ nombre: "", peso: 3, nivel: 3, palabras_clave: "", tipo: "tecnica" });
+const casillaTecnico = () => form.elements.namedItem("tecnico");
 const PESOS = [
     { campo: "peso_lider", nombre: "Líder ✶", color: "var(--gold)" },
     { campo: "peso_empresa", nombre: "Empresa ✶", color: "var(--bronze)" },
@@ -40,6 +41,7 @@ function tarjetaVacante(v) {
       </div>
       <span class="estado estado-${v.estado}">${abierta ? "Abierta" : "Cerrada"}</span>
     </header>
+    ${v.tecnico ? `<p class="meta">⌘ Cargo técnico: pide portafolio, GitHub, LinkedIn y repositorio</p>` : ""}
     <p class="meta">Líder: <strong>${esc(v.lider_nombre)}</strong> · ${esc(v.lider_cargo)}</p>
     ${v.perfil_id
         ? v.perfil_titulo
@@ -89,8 +91,13 @@ function pintarHabilidades() {
           <input data-k="nombre" value="${esc(h.nombre)}" placeholder="Habilidad (ej. ROS 2)"></label>
         <label class="campo campo-num"><span>Peso</span><select data-k="peso">${opcionesNum(h.peso)}</select></label>
         <label class="campo campo-num"><span>Nivel</span><select data-k="nivel">${opcionesNum(h.nivel)}</select></label>
+        <label class="campo campo-tipo"><span>Tipo</span><select data-k="tipo"
+            title="Las blandas no se buscan por palabras clave: el oráculo IA las lee o las deduce de los proyectos">
+          <option value="tecnica" ${h.tipo === "tecnica" ? "selected" : ""}>Técnica</option>
+          <option value="blanda" ${h.tipo === "blanda" ? "selected" : ""}>Blanda</option></select></label>
         <label class="campo hab-claves"><span class="sr">Palabras clave</span>
-          <input data-k="palabras_clave" value="${esc(h.palabras_clave)}" placeholder="Palabras clave del CV: ros2, gazebo, rviz"></label>
+          <input data-k="palabras_clave" value="${esc(h.palabras_clave)}"
+            placeholder="${h.tipo === "blanda" ? "Blanda: la IA la lee o la deduce de los proyectos" : "Palabras clave del CV: ros2, gazebo, rviz"}"></label>
         <button type="button" class="btn-icono" data-quitar-hab="${i}" aria-label="Quitar habilidad ${i + 1}">✕</button>
       </div>`)
         .join("");
@@ -114,6 +121,10 @@ contHab.addEventListener("input", (e) => {
     }
     else if (t.dataset.k === "palabras_clave") {
         h.palabras_clave = t.value;
+    }
+    else if (t.dataset.k === "tipo") {
+        h.tipo = t.value;
+        return pintarHabilidades(); // cambia la ayuda de las palabras clave
     }
     else {
         h[t.dataset.k] = Number(t.value);
@@ -197,12 +208,14 @@ async function abrir(vac, duplicar = false, perfilInicial = "") {
         set("lider_id", vac.lider_id);
         set("descripcion", vac.descripcion);
         set("elemento_afin", vac.elemento_afin ?? "");
+        casillaTecnico().checked = !!vac.tecnico;
         for (const p of PESOS)
             set(p.campo, vac[p.campo]);
-        habilidades = vac.habilidades.map(({ nombre, peso, nivel, palabras_clave }) => ({ nombre, peso, nivel, palabras_clave }));
+        habilidades = vac.habilidades.map(({ nombre, peso, nivel, palabras_clave, tipo }) => ({ nombre, peso, nivel, palabras_clave, tipo }));
     }
     else {
         habilidades = [nuevaHabilidad(), nuevaHabilidad(), nuevaHabilidad()];
+        casillaTecnico().checked = false;
     }
     pintarHabilidades();
     pintarPesos();
@@ -235,6 +248,7 @@ form.addEventListener("submit", async (e) => {
         lider_id: val("lider_id"),
         descripcion: val("descripcion"),
         elemento_afin: val("elemento_afin"),
+        tecnico: casillaTecnico().checked,
         perfil_id: selPerfil.value,
         perfil_archivo: selPerfil.value ? perfilArchivo : null,
         ...Object.fromEntries(PESOS.map((p) => [p.campo, Number(val(p.campo))])),
@@ -328,9 +342,10 @@ function llenar(c) {
     poner("area", c.area);
     poner("descripcion", c.descripcion);
     poner("elemento_afin", c.elemento_afin);
+    casillaTecnico().checked = c.tecnico;
     poner("lider_id", c.lider_id);
     habilidades = c.habilidades.length
-        ? c.habilidades.map(({ nombre, peso, nivel, palabras_clave }) => ({ nombre, peso, nivel, palabras_clave }))
+        ? c.habilidades.map(({ nombre, peso, nivel, palabras_clave, tipo }) => ({ nombre, peso, nivel, palabras_clave, tipo: tipo ?? "tecnica" }))
         : [nuevaHabilidad(), nuevaHabilidad(), nuevaHabilidad()];
     pintarHabilidades();
     pintarLiderPreview();

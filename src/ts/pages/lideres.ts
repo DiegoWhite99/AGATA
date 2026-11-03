@@ -1,15 +1,50 @@
 import { api, ApiError } from "../api.js";
 import {
-  COLOR_ELEMENTO, iniciarNatal, leerNatal, panelAtributos, rellenarNatal, ruedaZodiacal,
+  chipArquetipo, COLOR_ELEMENTO, iniciarNatal, leerNatal, panelAtributos, rellenarNatal, ruedaZodiacal,
 } from "../astro-ui.js";
 import { $, $$, confirmar, esc, iniciarDropzone, limpiarErrores, mostrarErrores, toast, vacio } from "../ui.js";
-import type { Lider } from "../types.js";
+import type { JefeSugerido, Lider } from "../types.js";
 
 const dlg = $<HTMLDialogElement>("#dlg-lider");
 const form = $<HTMLFormElement>("#form-lider");
 const inputCv = form.querySelector<HTMLInputElement>("[name=cv]")!;
+const selJefe = form.elements.namedItem("jefe_id") as HTMLSelectElement;
 const refrescarCv = iniciarDropzone($("#zona-cv-lider"), inputCv);
 let editandoId: number | null = null;
+let lideres: Lider[] = [];
+
+/** Los que dependen (directa o indirectamente) de un líder: no pueden ser su jefe. */
+function subordinados(id: number): Set<number> {
+  const salida = new Set<number>();
+  let nuevos = [id];
+  while (nuevos.length) {
+    nuevos = lideres.filter((l) => l.jefe_id != null && nuevos.includes(l.jefe_id) && !salida.has(l.id)).map((l) => l.id);
+    nuevos.forEach((n) => salida.add(n));
+  }
+  return salida;
+}
+
+function opcionesJefe(id: number | null, actual: number | null): void {
+  const excluidos = id ? subordinados(id).add(id) : new Set<number>();
+  selJefe.innerHTML = `<option value="">Nadie: encabeza la cadena</option>` + lideres
+    .filter((l) => !excluidos.has(l.id))
+    .map((l) => `<option value="${l.id}" ${l.id === actual ? "selected" : ""}>${esc(l.nombre)} · ${esc(l.cargo)}</option>`)
+    .join("");
+}
+
+/** Sugiere el jefe inmediato según el perfil del cargo del líder (su «superior inmediato»). */
+async function sugerirJefe(): Promise<void> {
+  const caja = $("#jefe-sugerido");
+  const cargo = (form.elements.namedItem("cargo") as HTMLInputElement).value.trim();
+  const s = cargo ? await api.get<JefeSugerido | null>(`/api/lideres/jefe-sugerido?cargo=${encodeURIComponent(cargo)}${editandoId ? `&id=${editandoId}` : ""}`) : null;
+  const yaAsignado = s?.jefe_id != null && String(s.jefe_id) === selJefe.value;
+  caja.hidden = !s || yaAsignado || !!(s.jefe_id && !selJefe.querySelector(`option[value="${s.jefe_id}"]`));
+  if (!s || caja.hidden) return;
+  caja.innerHTML = s.jefe_id
+    ? `Según el perfil «${esc(s.perfil)}», su superior inmediato es «${esc(s.superior)}»: <strong>${esc(s.jefe_nombre)}</strong>.
+       <button type="button" class="btn btn-sec btn-sm" data-usar-jefe="${s.jefe_id}">Asignar</button>`
+    : `Según el perfil «${esc(s.perfil)}», su superior inmediato es «${esc(s.superior)}», pero aún no hay un líder registrado con ese cargo.`;
+}
 
 const dlgCarta = $<HTMLDialogElement>("#dlg-carta");
 
@@ -37,13 +72,18 @@ function tarjetaLider(l: Lider): string {
           <span class="meta">${esc(l.cargo)} · ${esc(l.area)}</span>
         </div>
       </header>
+      ${chipArquetipo(l.carta, true)}
+      ${l.jefe_nombre ? `<p class="meta">Reporta a <strong>${esc(l.jefe_nombre)}</strong></p>` : ""}
       ${astros}
       ${l.carta ? `<p class="meta">Ante el conflicto tiende a <strong>${l.carta.conflicto.dominante.toLowerCase()}</strong>
           · necesita ${esc(l.carta.conflicto.necesita)}.</p>` : ""}
       <p class="texto-corto">${esc(l.descripcion)}</p>
       ${cv}
       <footer class="tarjeta-pie">
-        <span class="meta">${l.vacantes ?? 0} cargo(s) a cargo</span>
+        <span class="meta">${l.vacantes ?? 0} cargo(s) a cargo${(() => {
+          const equipo = lideres.filter((o) => o.jefe_id === l.id).length;
+          return equipo ? ` · ${equipo} líder(es) en su equipo` : "";
+        })()}</span>
         <div class="lista-acciones">
           ${l.carta ? `<button class="btn btn-sm" data-carta="${l.id}">Ver carta</button>` : ""}
           <button class="btn btn-sec btn-sm" data-editar="${l.id}">Editar</button>
@@ -54,7 +94,7 @@ function tarjetaLider(l: Lider): string {
 }
 
 async function cargar(): Promise<void> {
-  const lideres = await api.get<Lider[]>("/api/lideres");
+  lideres = await api.get<Lider[]>("/api/lideres");
   $("#lista-lideres").innerHTML = lideres.length
     ? lideres.map(tarjetaLider).join("")
     : vacio("♃", "Aún no hay líderes", "Registra al líder o jefe que va a recibir a los nuevos integrantes.");
@@ -90,6 +130,9 @@ async function abrir(lider?: Lider): Promise<void> {
     }
   }
   await rellenarNatal(form, lider ?? {});
+  opcionesJefe(editandoId, lider?.jefe_id ?? null);
+  $("#jefe-sugerido").hidden = true;
+  if (lider) sugerirJefe().catch(() => undefined);
   refrescarCv();
   const actual = $("#cv-actual");
   actual.hidden = !lider?.cv_archivo;
@@ -106,6 +149,7 @@ form.addEventListener("submit", async (e) => {
   e.preventDefault();
   const datos = new FormData();
   for (const c of CAMPOS_TEXTO) datos.append(c, (form.elements.namedItem(c) as HTMLInputElement).value);
+  datos.append("jefe_id", selJefe.value);
   const natal = leerNatal(form);
   if (natal.fecha_nac) for (const [k, v] of Object.entries(natal)) datos.append(k, v);
   if (inputCv.files?.[0]) datos.append("cv", inputCv.files[0]);
@@ -124,9 +168,17 @@ form.addEventListener("submit", async (e) => {
   }
 });
 
+(form.elements.namedItem("cargo") as HTMLInputElement).addEventListener("change", () => sugerirJefe().catch(() => undefined));
+selJefe.addEventListener("change", () => sugerirJefe().catch(() => undefined));
+
 document.addEventListener("click", async (e) => {
   const t = e.target as HTMLElement;
   t.closest("[data-cerrar]")?.closest("dialog")?.close();
+  const usarJefe = t.closest<HTMLElement>("[data-usar-jefe]");
+  if (usarJefe) {
+    selJefe.value = usarJefe.dataset.usarJefe!;
+    $("#jefe-sugerido").hidden = true;
+  }
   const verCarta = t.closest<HTMLElement>("[data-carta]");
   if (verCarta) await abrirCarta(await api.get<Lider>(`/api/lideres/${verCarta.dataset.carta}`));
   const editar = t.closest<HTMLElement>("[data-editar]");

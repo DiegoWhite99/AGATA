@@ -77,7 +77,16 @@ export interface DinamicaConflicto {
   consejo_para_b: string;
 }
 
+/** Rol de la persona en un equipo, según su elemento y su modalidad dominantes. */
+export interface Arquetipo {
+  nombre: string;
+  rol: string;
+  elemento: string;
+  modalidad: string;
+}
+
 export interface Carta {
+  arquetipo?: Arquetipo;
   posiciones: Record<string, Posicion>;
   elementos: Record<string, number>;
   modalidades: Record<string, number>;
@@ -121,7 +130,30 @@ export interface Lider extends DatosNatales {
   carta: Carta | null;
   cv_archivo: string | null;
   vacantes?: number;
+  /** Cadena de mando: el líder del que depende. */
+  jefe_id: number | null;
+  jefe_nombre?: string | null;
 }
+
+export interface JefeSugerido {
+  perfil: string;
+  superior: string;
+  jefe_id: number | null;
+  jefe_nombre: string | null;
+  motivo: string;
+}
+
+/** Lo que dibuja la sección Red. */
+export interface DatosRed {
+  empresa: { nombre: string; arquetipo: Arquetipo | null } | null;
+  lideres: { id: number; nombre: string; cargo: string; area: string; jefe_id: number | null; arquetipo: Arquetipo | null;
+             sinastria_jefe: number | null; sinastria_empresa: number | null }[];
+  vacantes: { id: number; cargo: string; area: string; lider_id: number; estado: string; tecnico: number }[];
+  candidatos: { id: number; nombre: string; vacante_id: number; puntaje: number; decision_lider: Decision;
+                sinastria_lider: number | null; potencial: number | null; arquetipo: Arquetipo | null }[];
+}
+
+export type TipoHabilidad = "tecnica" | "blanda";
 
 export interface Habilidad {
   id?: number;
@@ -129,6 +161,17 @@ export interface Habilidad {
   peso: number;
   nivel: number;
   palabras_clave: string;
+  /** Las blandas no se buscan por palabras clave: las lee o las deduce de los proyectos la IA. */
+  tipo: TipoHabilidad;
+}
+
+export type TipoEvidencia = "directa" | "deducida" | "sin evidencia";
+
+/** Capacidad de crecer y aprender según el oráculo IA (no entra en el puntaje). */
+export interface Potencial {
+  puntaje: number;
+  lectura: string;
+  senales: string[];
 }
 
 export interface Pesos {
@@ -153,6 +196,8 @@ export interface VacanteResumen extends Pesos {
   lider_nombre: string;
   lider_cargo: string;
   elemento_afin: string | null;
+  /** 1 si el cargo es técnico: pide GitHub, LinkedIn y repositorio además del portafolio. */
+  tecnico: number;
   candidatos: number;
   n_pendientes: number | null;
   n_aprobados: number | null;
@@ -180,6 +225,7 @@ export interface CandidatoFila {
   signo_sol: string | null;
   lecturas: Lecturas | null;
   destaca: Destaca[] | null;
+  potencial: number | null;
 }
 
 export interface Vacante
@@ -237,6 +283,7 @@ export interface PropuestaPerfil {
     elemento_afin: string | null;
     lider_id: number | null;
     habilidades: Habilidad[];
+    tecnico: boolean;
   };
   lider_motivo: string;
   avisos: string[];
@@ -260,11 +307,72 @@ export interface VacantePublica {
   empresa: string | null;
   habilidades: { nombre: string; nivel: number }[];
   requisitos: { formacion?: string; experiencia?: string; conocimientos?: string } | null;
+  tecnico: boolean;
+}
+
+export type CampoEnlace = "github" | "linkedin" | "portafolio" | "repositorio";
+
+/** Un enlace del postulante y lo que se pudo leer de él. */
+export interface EnlaceBase {
+  url: string;
+  /** "github": el repositorio destacado lo eligió AGATA entre los de su GitHub. */
+  origen: "formulario" | "hoja de vida" | "github";
+  leido: boolean;
+  error?: string;
+  nota?: string;
+}
+
+export interface RepoGithub {
+  nombre: string;
+  descripcion: string;
+  lenguaje: string | null;
+  estrellas: number;
+  temas: string[];
+  actualizado: string;
+  url: string;
+}
+
+export interface EnlaceGithub extends EnlaceBase {
+  usuario?: string;
+  bio?: string | null;
+  repos_publicos?: number;
+  seguidores?: number;
+  desde?: string;
+  lenguajes?: string[];
+  forks?: number;
+  repos?: RepoGithub[];
+}
+
+export interface EnlacePagina extends EnlaceBase {
+  titulo?: string;
+  descripcion?: string;
+  texto?: string;
+  /** La página se arma con JavaScript y casi no trae texto legible. */
+  poco_texto?: boolean;
+}
+
+export interface EnlaceRepositorio extends EnlacePagina {
+  tipo?: "github" | "pagina";
+  nombre?: string;
+  estrellas?: number;
+  temas?: string[];
+  actualizado?: string;
+  lenguajes?: { nombre: string; pct: number }[];
+  readme?: string;
+}
+
+export interface Enlaces {
+  github?: EnlaceGithub;
+  linkedin?: EnlaceBase;
+  portafolio?: EnlacePagina;
+  repositorio?: EnlaceRepositorio;
+  revisado: string;
 }
 
 export interface DictamenIA {
   modelo: string;
-  habilidades: { nombre: string; puntaje: number; evidencia: string }[];
+  habilidades: { nombre: string; puntaje: number; evidencia: string; tipo_evidencia?: TipoEvidencia | null; fuente?: string }[];
+  potencial?: Potencial | null;
   ajuste_lider: number;
   ajuste_explicacion: string;
   resumen: string;
@@ -274,6 +382,7 @@ export interface DictamenIA {
   lectura_sinastria_lider?: string;
   lectura_sinastria_empresa?: string;
   manejo_conflictos?: string;
+  evidencia_en_linea?: string;
   lectura_astral?: string;
   recomendacion: string;
 }
@@ -289,13 +398,17 @@ export interface HabilidadEvaluada {
   nombre: string;
   peso: number;
   nivel: number;
+  tipo: TipoHabilidad;
   requerido: number;
-  cv: number;
+  /** null: habilidad blanda sin lectura de la IA (no se puede medir por palabras clave). */
+  cv: number | null;
   cv_claves: number;
   cv_ia: number | null;
   evidencia_ia: string | null;
-  cobertura: number;
-  estado: "cumple" | "parcial" | "brecha";
+  evidencia_tipo: TipoEvidencia | null;
+  fuente: string | null;
+  cobertura: number | null;
+  estado: "cumple" | "parcial" | "brecha" | "sin_lectura";
   claves_encontradas: string[];
 }
 
@@ -329,6 +442,7 @@ export interface Sinastria {
 export interface Resultado {
   puntaje: number;
   lecturas: Lecturas;
+  potencial: Potencial | null;
   destaca: Destaca[];
   componentes: Componentes;
   pesos: Record<keyof Componentes, number>;
@@ -357,6 +471,7 @@ export interface Candidato extends DatosNatales {
   puntaje: number;
   decision_lider: Decision;
   nota_lider: string | null;
+  enlaces: Enlaces | null;
   creado: string;
 }
 

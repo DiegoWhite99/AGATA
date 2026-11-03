@@ -449,13 +449,40 @@ def dinamica_conflicto(carta_a: dict, carta_b: dict, nombre_a: str, nombre_b: st
     }
 
 
-VERSION_CARTA = 4
+# --- Rol arquetípico: elemento dominante × modalidad dominante ------------------------------
+
+ARQUETIPOS = {
+    ("Fuego", "Cardinal"): ("El Pionero", "Abre caminos: arranca proyectos y contagia el impulso de empezar."),
+    ("Fuego", "Fija"): ("El Guardián de la llama", "Sostiene la energía del equipo y no suelta una meta hasta lograrla."),
+    ("Fuego", "Mutable"): ("El Explorador", "Prueba, se mueve y descubre oportunidades donde otros no miran."),
+    ("Tierra", "Cardinal"): ("El Arquitecto", "Diseña la estructura: convierte ideas en planes, procesos y bases sólidas."),
+    ("Tierra", "Fija"): ("El Constructor", "Ejecuta con constancia: entrega, mantiene y hace que las cosas duren."),
+    ("Tierra", "Mutable"): ("El Artesano", "Pule los detalles y ajusta el método hasta que todo funciona bien."),
+    ("Aire", "Cardinal"): ("El Estratega", "Lee el tablero, define el rumbo y conecta las piezas para avanzar."),
+    ("Aire", "Fija"): ("El Visionario", "Sostiene una idea de futuro y la defiende con argumentos."),
+    ("Aire", "Mutable"): ("El Mensajero", "Traduce, comunica y teje redes entre personas y áreas."),
+    ("Agua", "Cardinal"): ("El Guía", "Cuida al equipo y lo orienta: sabe qué necesita cada persona."),
+    ("Agua", "Fija"): ("El Oráculo", "Ve lo que no se dice: intuición profunda, lealtad y memoria del grupo."),
+    ("Agua", "Mutable"): ("El Alquimista", "Transforma tensiones en soluciones y se adapta a lo que pide el momento."),
+}
+
+
+def arquetipo(carta: dict) -> dict:
+    """El rol de la persona en un equipo, según su elemento y su modalidad dominantes."""
+    elemento = carta["elemento_dominante"]
+    modalidad = max(carta["modalidades"], key=carta["modalidades"].get)
+    nombre, rol = ARQUETIPOS[(elemento, modalidad)]
+    return {"nombre": nombre, "rol": rol, "elemento": elemento, "modalidad": modalidad}
+
+
+VERSION_CARTA = 5
 
 
 def completar_carta(carta: dict) -> dict:
-    """Agrega (o recalcula) lo que se deriva de las posiciones: atributos y perfil de conflicto."""
+    """Agrega (o recalcula) lo que se deriva de las posiciones: atributos, perfil de conflicto y rol."""
     carta["conflicto"] = perfil_conflicto(carta)
     carta["atributos"] = atributos(carta)
+    carta["arquetipo"] = arquetipo(carta)
     carta["version"] = VERSION_CARTA
     return carta
 

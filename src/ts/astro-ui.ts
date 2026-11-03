@@ -260,6 +260,14 @@ export function panelAtributos(carta: Carta): string {
 
 // --- Tarjeta resumen de una carta --------------------------------------------------
 
+/** El rol arquetípico de una carta (El Arquitecto, El Oráculo…), con el color de su elemento. */
+export function chipArquetipo(carta: Carta | null | undefined, conRol = false): string {
+  const a = carta?.arquetipo;
+  if (!a) return "";
+  return `<p class="arquetipo" style="--c:${COLOR_ELEMENTO[a.elemento]}" title="${esc(a.elemento)} · ${esc(a.modalidad)}">
+      <b>✦ ${esc(a.nombre)}</b>${conRol ? `<span>${esc(a.rol)}</span>` : ""}</p>`;
+}
+
 export function tarjetaCarta(rol: string, nombre: string, carta: Carta | null, vacioTxt = ""): string {
   if (!carta) {
     return `<article class="carta-mini carta-mini-vacia">
@@ -271,6 +279,7 @@ export function tarjetaCarta(rol: string, nombre: string, carta: Carta | null, v
   return `<article class="carta-mini">
       <p class="eyebrow">${esc(rol)}</p>
       <h3>${esc(nombre)}</h3>
+      ${chipArquetipo(carta, true)}
       <div class="carta-mini-rueda">${ruedaZodiacal(carta, 260)}</div>
       <p class="astros-mini">${["sol", "luna", "ascendente"]
         .map(clave)

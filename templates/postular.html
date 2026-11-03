@@ -51,6 +51,25 @@
       <p class="ayuda">El oráculo IA la leerá completa para encontrar evidencia de cada habilidad del cargo.</p>
       {{ zona_cv("dropzone", "Arrastra tu hoja de vida aquí", "o haz clic para buscarla · PDF, DOCX o TXT · máx. 5 MB") }}
       <small class="error" data-error="cv" hidden></small>
+
+      <fieldset class="enlaces-campos">
+        <legend>Tu trabajo en línea <em class="opcional">(opcional)</em></legend>
+        <p class="ayuda" data-solo="general">Comparte tu portafolio: proyectos, casos o trabajos que muestren lo que sabes
+          hacer. El oráculo lo revisa. Si tu hoja de vida ya lo trae, lo tomamos de ahí.</p>
+        <p class="ayuda" data-solo="tecnico" hidden>En este cargo técnico, tu GitHub y tus proyectos dicen más que la hoja de
+          vida: el oráculo los revisa. Si tu hoja de vida ya trae estos enlaces, los tomamos de ahí. LinkedIn no se puede
+          leer automáticamente, pero el líder lo verá en tu informe.</p>
+        <div class="grid-2">
+          <label class="campo"><span>Portafolio o sitio web</span><input name="portafolio" placeholder="tu-sitio.com" autocomplete="url">
+            <small class="error" data-error="portafolio" hidden></small></label>
+          <label class="campo" data-solo="tecnico" hidden><span>GitHub</span><input name="github" placeholder="usuario o github.com/usuario" autocomplete="off">
+            <small class="error" data-error="github" hidden></small></label>
+          <label class="campo" data-solo="tecnico" hidden><span>Repositorio destacado</span><input name="repositorio" placeholder="github.com/usuario/proyecto" autocomplete="off">
+            <small class="error" data-error="repositorio" hidden></small></label>
+          <label class="campo" data-solo="tecnico" hidden><span>LinkedIn</span><input name="linkedin" placeholder="linkedin.com/in/tu-usuario" autocomplete="url">
+            <small class="error" data-error="linkedin" hidden></small></label>
+        </div>
+      </fieldset>
     </section>
 
     <section class="paso" data-paso="4" hidden>

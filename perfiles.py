@@ -278,7 +278,7 @@ def _claves(texto: str, maximo: int = 8) -> list[str]:
 def habilidades(p: dict) -> list[dict]:
     """La matriz de habilidades sale de las competencias y los conocimientos del perfil."""
     if p.get("habilidades"):
-        return p["habilidades"]
+        return [{**h, "tipo": h.get("tipo") or tipo_habilidad(h["nombre"])} for h in p["habilidades"]]
     base = _NIVEL_BASE.get(_norm(p.get("nivel")).split()[0] if p.get("nivel") else "", 3)
     comp = competencias(p.get("competencias"))
     tecnicas, blandas = comp["tecnicas"], comp["blandas"]
@@ -287,20 +287,20 @@ def habilidades(p: dict) -> list[dict]:
         tecnicas, conocimientos = tecnicas + conocimientos, []
     salida, vistas = [], set()
 
-    def agregar(texto: str, peso: int, nivel: int, claves: list[str]) -> None:
+    def agregar(texto: str, peso: int, nivel: int, claves: list[str], tipo: str) -> None:
         nombre = _nombre_corto(texto)
         if len(nombre) < 3 or _norm(nombre) in vistas:
             return
         vistas.add(_norm(nombre))
-        salida.append({"nombre": nombre, "peso": peso, "nivel": nivel, "palabras_clave": ", ".join(claves)})
+        salida.append({"nombre": nombre, "peso": peso, "nivel": nivel, "palabras_clave": ", ".join(claves), "tipo": tipo})
 
     for i, t in enumerate(tecnicas[:5]):
-        agregar(t, 5 if i < 2 else 4, base, _claves(t))
+        agregar(t, 5 if i < 2 else 4, base, _claves(t), "tecnica")
     for t in blandas[:4]:
-        agregar(t, 3, base, _claves(t, 5))
+        agregar(t, 3, base, _claves(t, 5), "blanda")
     if conocimientos:
         claves = [c for linea in conocimientos for c in _claves(linea, 3)]
-        agregar("Conocimientos deseables", 3, max(2, base - 1), claves[:12])
+        agregar("Conocimientos deseables", 3, max(2, base - 1), claves[:12], "tecnica")
     return salida
 
 
@@ -317,6 +317,37 @@ _ELEMENTO_RAICES = {
     "Agua": ["acompan", "empat", "servicio", "cuidado", "bienestar", "creativ", "diseno", "visual", "sensib",
              "apoyo", "atencion", "emocion", "colabor", "equipo"],
 }
+
+
+# --- Cargo técnico: además del portafolio, pide GitHub, LinkedIn y repositorio ----------------
+
+_TECNICO = re.compile(
+    r"\b(software|programa(cion|dor\w*)|desarrollador\w*|desarrollo (tecnologico|web|de software|de aplicaciones|movil)|"
+    r"front ?end|back ?end|full ?stack|devops|ingenier\w* de (sistemas|software|datos|desarrollo)|"
+    r"inteligencia artificial|ia|machine learning|aprendizaje automatico|ciencia de datos|analitica de datos|"
+    r"robotic\w*|ciberseguridad|cloud|python|javascript|typescript|java|react|sql|git|api)\b")
+
+
+# --- Habilidad técnica o blanda --------------------------------------------------------------
+# Las blandas casi nunca se escriben al pie de la letra en una hoja de vida: no se buscan por
+# palabras clave, las lee (o las deduce de los proyectos) el oráculo IA.
+
+_BLANDA = re.compile(
+    r"\b(comunica\w*|trabajo en equipo|equipos?|colabora\w*|lideraz\w*|liderar|orientacion|autonom\w*|"
+    r"proactiv\w*|iniciativa|empat\w*|adaptab\w*|flexib\w*|creativ\w*|negocia\w*|resolucion de (problemas|conflictos)|"
+    r"pensamiento critico|etica|responsab\w*|compromiso|servicio|atencion al cliente|relaciones interpersonales|"
+    r"interpersonal\w*|gestion del tiempo|cumplimiento|resultados|actitud|asertiv\w*|escucha|tolerancia|presion|"
+    r"disciplina|motivacion|aprendizaje continuo)\b")
+
+
+def tipo_habilidad(nombre: str) -> str:
+    """'blanda' o 'tecnica', por el nombre de la habilidad."""
+    return "blanda" if _BLANDA.search(_norm(nombre)) else "tecnica"
+
+
+def es_tecnico(*textos: str) -> bool:
+    """Sugiere si un cargo es técnico (ingeniería, desarrollo, datos o IA) por su nombre y sus habilidades."""
+    return bool(_TECNICO.search(_norm(" ".join(t or "" for t in textos))))
 
 
 def elemento_sugerido(p: dict) -> str | None:
@@ -589,7 +620,8 @@ def propuesta(p: dict, lideres: list[dict], catalogo_: list[dict]) -> dict:
     return {
         "campos": {"cargo": cargo, "area": (p.get("division") or p.get("vicerrectoria") or "").strip(),
                    "descripcion": descripcion, "habilidades": habs, "elemento_afin": elemento_sugerido(p),
-                   "lider_id": lider_id},
+                   "lider_id": lider_id,
+                   "tecnico": es_tecnico(cargo, *(f"{h['nombre']} {h['palabras_clave']}" for h in habs))},
         "lider_motivo": motivo,
         "avisos": avisos,
     }

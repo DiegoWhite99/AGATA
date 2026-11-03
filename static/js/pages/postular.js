@@ -1,5 +1,5 @@
 import { api, ApiError } from "../api.js";
-import { fichaConflicto, iniciarNatal, leerNatal, panelAtributos, ruedaZodiacal } from "../astro-ui.js";
+import { chipArquetipo, fichaConflicto, iniciarNatal, leerNatal, panelAtributos, ruedaZodiacal } from "../astro-ui.js";
 import { $, $$, esc, iniciarDropzone, limpiarErrores, mostrarErrores, vacio } from "../ui.js";
 const raiz = $("#postular");
 const id = Number(raiz.dataset.id);
@@ -8,6 +8,9 @@ const pasos = $$(".paso", form);
 const inputCv = form.querySelector("[name=cv]");
 const EXT = [".pdf", ".docx", ".txt"];
 const PASO_CARTA = 2;
+const ENLACES_TECNICO = [["portafolio", "Portafolio"], ["github", "GitHub"], ["repositorio", "Repositorio"], ["linkedin", "LinkedIn"]];
+/** Todo postulante comparte su portafolio; en los cargos técnicos, también GitHub, repositorio y LinkedIn. */
+let ENLACES = ENLACES_TECNICO.slice(0, 1);
 let paso = 0;
 let carta = null;
 let firmaCarta = "";
@@ -70,6 +73,7 @@ async function trazarCarta() {
     <div class="carta-cabecera">
       <div class="carta-rueda">${ruedaZodiacal(carta, 260)}</div>
       <div>
+        ${chipArquetipo(carta, true)}
         <p class="parrafo"><strong>${esc(carta.resumen)}</strong></p>
         <p class="parrafo">${esc(carta.perfil_laboral)}</p>
       </div>
@@ -110,6 +114,8 @@ function pintarResumen() {
       <dt>Carta</dt><dd>${esc(carta?.resumen ?? "—")}</dd>
       <dt>Ante el conflicto</dt><dd>${carta?.conflicto ? `Tiende a ${carta.conflicto.dominante.toLowerCase()}` : "—"}</dd>
       <dt>Hoja de vida</dt><dd>${esc(inputCv.files?.[0]?.name ?? "—")}</dd>
+      <dt>Trabajo en línea</dt><dd>${ENLACES.filter(([k]) => valor(k)).map(([k, nombre]) => `${nombre}: ${esc(valor(k))}`).join(" · ")
+        || "Los tomamos de tu hoja de vida, si los trae"}</dd>
     </dl>
     <p class="ayuda">Al enviar, el oráculo cruza tu carta con la del líder y la de la empresa, lee tu hoja de vida
       y pronuncia el informe de match.</p>`;
@@ -144,6 +150,8 @@ form.addEventListener("submit", async (e) => {
     for (const [k, v] of Object.entries(leerNatal(form)))
         fd.append(k, v);
     fd.append("cv", inputCv.files[0]);
+    for (const [k] of ENLACES)
+        fd.append(k, valor(k));
     const overlay = $("#calculando");
     overlay.hidden = false;
     try {
@@ -173,6 +181,9 @@ Promise.all([api.get(`/api/vacantes/${id}/publica`), iniciarNatal(form)])
     $("#post-cargo").textContent = v.cargo;
     $("#post-sub").textContent = `${v.empresa ? `${v.empresa} · ` : ""}${v.area} · Líder: ${v.lider_nombre} (${v.lider_cargo})`;
     $("#post-desc p").textContent = v.descripcion;
+    if (v.tecnico)
+        ENLACES = ENLACES_TECNICO;
+    $$("[data-solo]", form).forEach((el) => (el.hidden = el.dataset.solo !== (v.tecnico ? "tecnico" : "general")));
     const req = v.requisitos;
     if (req) {
         const caja = $("#post-requisitos");

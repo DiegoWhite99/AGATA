@@ -8,7 +8,7 @@ const id = Number(raiz.dataset.id);
 let vac;
 let filtro = "todos";
 const estadoDe = (c) => c.decision_lider ?? "pendiente";
-const celda = (v) => v == null ? `<td class="num meta">—</td>` : `<td class="num" style="color:${colorPuntaje(v)}">${v.toFixed(0)}</td>`;
+const celda = (v) => v == null ? `<td class="num"><span class="meta-inline">—</span></td>` : `<td class="num" style="color:${colorPuntaje(v)}">${v.toFixed(0)}</td>`;
 const puntos = (n) => `<span class="nivel" aria-label="Nivel ${n} de 5">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= n ? "on" : ""}"></i>`).join("")}</span>`;
 function filaCandidato(c) {
     // El puesto es el del ranking completo, aunque haya un filtro activo.
@@ -18,7 +18,8 @@ function filaCandidato(c) {
     <td>${c.signo_sol ? `☉ ${esc(c.signo_sol)}` : "—"}</td>
     ${celda(c.lecturas?.profesional)}${celda(c.lecturas?.astral)}
     <td class="celda-puntaje"><strong class="puntaje-neutro">${c.puntaje.toFixed(1)}%</strong>${barra(c.puntaje, "var(--gold)")}</td>
-    <td>${(c.destaca ?? []).map((d) => `<span class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</span>`).join("") || "—"}</td>
+    <td>${c.potencial != null && c.potencial >= 70 ? `<span class="chip chip-potencial">✦ Potencial alto · ${c.potencial}%</span>` : ""}
+      ${(c.destaca ?? []).map((d) => `<span class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</span>`).join("") || "—"}</td>
     <td>${badgeDecision(c.decision_lider)}</td>
     <td><a class="btn btn-sec btn-sm" href="/candidatos/${c.id}">Informe</a></td>
   </tr>`;
@@ -124,8 +125,11 @@ function pintar() {
       <div class="tabla-scroll"><table class="tabla">
         <thead><tr><th>Habilidad</th><th>Peso</th><th>Nivel</th><th>Palabras clave en el CV</th></tr></thead>
         <tbody>${vac.habilidades
-        .map((h) => `<tr><td><strong>${esc(h.nombre)}</strong></td><td>${puntos(h.peso)}</td><td>${puntos(h.nivel)}</td>
-              <td class="claves">${h.palabras_clave.split(",").filter((k) => k.trim()).map((k) => `<span class="chip">${esc(k.trim())}</span>`).join("")}</td></tr>`)
+        .map((h) => `<tr><td><strong>${esc(h.nombre)}</strong><span class="meta">${h.tipo === "blanda" ? "Blanda" : "Técnica"}</span></td>
+              <td>${puntos(h.peso)}</td><td>${puntos(h.nivel)}</td>
+              <td class="claves">${h.tipo === "blanda"
+        ? `<span class="meta">No se buscan: el oráculo IA la lee o la deduce de los proyectos</span>`
+        : h.palabras_clave.split(",").filter((k) => k.trim()).map((k) => `<span class="chip">${esc(k.trim())}</span>`).join("")}</td></tr>`)
         .join("")}</tbody></table></div>
       </section>
     </div>

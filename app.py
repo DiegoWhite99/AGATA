@@ -12,6 +12,7 @@ from flask import Flask, Response, abort, jsonify, render_template, request, sen
 from werkzeug.utils import secure_filename
 
 import astro
+import enlaces
 import evaluador
 import oraculo
 import perfil_cargo
@@ -164,6 +165,11 @@ def pagina_informe(cid: int):
     return render_template("informe.html", pagina="vacantes", candidato_id=cid)
 
 
+@app.get("/red")
+def pagina_red():
+    return render_template("red.html", pagina="red")
+
+
 # --- API: catálogos y panel --------------------------------------------------
 
 @app.get("/api/ciudades")
@@ -193,6 +199,39 @@ def api_panel():
         "vacantes": _lista_vacantes(con, solo_abiertas=True),
         "empresa": _empresa(con),
         "ia": {"activa": oraculo.activo(), "modelo": oraculo.modelo()},
+    })
+
+
+@app.get("/api/red")
+def api_red():
+    """La red: empresa, cadena de mando de los líderes, sus vacantes y los postulantes, con el rol de
+    cada uno y la fuerza de cada sinapsis (la sinastría con quien está arriba)."""
+    con = get_db()
+    empresa = _empresa(con)
+    carta_empresa = empresa["carta"] if empresa else None
+    lideres = rows_to_list(con.execute("SELECT id, nombre, cargo, area, jefe_id, carta FROM lideres ORDER BY nombre"))
+    por_id = {l["id"]: l for l in lideres}
+
+    def sinastria(a: dict | None, b: dict | None) -> float | None:
+        return astro.sinastria(a, b, "a", "b")["puntaje"] if a and b else None
+
+    candidatos = rows_to_list(con.execute("""
+        SELECT id, nombre, vacante_id, puntaje, decision_lider, carta,
+               json_extract(resultado, '$.componentes.lider') AS sinastria_lider,
+               json_extract(resultado, '$.potencial.puntaje') AS potencial
+        FROM candidatos ORDER BY puntaje DESC"""))
+    return jsonify({
+        "empresa": {"nombre": empresa["nombre"], "arquetipo": (carta_empresa or {}).get("arquetipo")} if empresa else None,
+        "lideres": [{"id": l["id"], "nombre": l["nombre"], "cargo": l["cargo"], "area": l["area"],
+                     "jefe_id": l["jefe_id"] if l["jefe_id"] in por_id else None,
+                     "arquetipo": (l["carta"] or {}).get("arquetipo"),
+                     "sinastria_jefe": sinastria(l["carta"], (por_id.get(l["jefe_id"]) or {}).get("carta")),
+                     "sinastria_empresa": sinastria(l["carta"], carta_empresa)} for l in lideres],
+        "vacantes": rows_to_list(con.execute(
+            "SELECT id, cargo, area, lider_id, estado, tecnico FROM vacantes ORDER BY id")),
+        "candidatos": [{**{k: c[k] for k in ("id", "nombre", "vacante_id", "puntaje", "decision_lider",
+                                              "sinastria_lider", "potencial")},
+                        "arquetipo": (c["carta"] or {}).get("arquetipo")} for c in candidatos],
     })
 
 
@@ -256,7 +295,23 @@ def api_empresa_lideres():
 
 # --- API: líderes ------------------------------------------------------------
 
-def _validar_lider(data: dict) -> dict:
+def _jefe_valido(con, jefe_id: int, lid: int | None) -> str | None:
+    """Error si el jefe no existe o si la cadena de mando haría un ciclo."""
+    if jefe_id == lid:
+        return "Un líder no puede ser su propio jefe."
+    visto, actual = set(), jefe_id
+    while actual is not None:
+        fila = con.execute("SELECT jefe_id FROM lideres WHERE id=?", (actual,)).fetchone()
+        if not fila:
+            return "Ese jefe ya no está registrado." if actual == jefe_id else None
+        if actual == lid or actual in visto:
+            return "Ese jefe depende de este líder: la cadena de mando quedaría en círculo."
+        visto.add(actual)
+        actual = fila["jefe_id"]
+    return None
+
+
+def _validar_lider(data: dict, lid: int | None = None) -> dict:
     errores: dict[str, str] = {}
     lider = {c: _texto(data, c) for c in
              ("nombre", "cargo", "area", "email", "descripcion", "estilo_liderazgo",
@@ -264,6 +319,12 @@ def _validar_lider(data: dict) -> dict:
     for campo in ("nombre", "cargo", "area"):
         if not lider[campo]:
             errores[campo] = "Campo obligatorio."
+    try:
+        lider["jefe_id"] = int(data.get("jefe_id")) if _texto(data, "jefe_id") else None
+    except ValueError:
+        lider["jefe_id"] = None
+    if lider["jefe_id"] is not None and (error := _jefe_valido(get_db(), lider["jefe_id"], lid)):
+        errores["jefe_id"] = error
     for campo, minimo in (("descripcion", MIN_DESC_LIDER), ("estilo_liderazgo", MIN_ESTILO_LIDER),
                           ("expectativas", MIN_EXPECTATIVAS_LIDER)):
         if len(lider[campo]) < minimo:
@@ -288,9 +349,32 @@ def _lider_publico(lider: dict | None) -> dict | None:
 @app.get("/api/lideres")
 def api_lideres():
     rows = get_db().execute("""
-        SELECT l.*, (SELECT COUNT(*) FROM vacantes v WHERE v.lider_id = l.id) AS vacantes
+        SELECT l.*, (SELECT COUNT(*) FROM vacantes v WHERE v.lider_id = l.id) AS vacantes,
+               (SELECT j.nombre FROM lideres j WHERE j.id = l.jefe_id) AS jefe_nombre
         FROM lideres l ORDER BY l.nombre""").fetchall()
     return jsonify([_lider_publico(l) for l in rows_to_list(rows)])
+
+
+@app.get("/api/lideres/jefe-sugerido")
+def api_jefe_sugerido():
+    """Sugiere el jefe inmediato de un líder: el perfil de su cargo dice cuál es su superior."""
+    cargo, lid = request.args.get("cargo", "").strip(), request.args.get("id", type=int)
+    if not cargo:
+        return jsonify(None)
+    con = get_db()
+    catalogo = perfiles.catalogo(con)
+    parecidos = sorted(((perfiles.parecido_cargo(cargo, p.get("cargo") or p["titulo"]), p) for p in catalogo),
+                       key=lambda x: -x[0])
+    if not parecidos or parecidos[0][0] < 0.6 or (len(parecidos) > 1 and parecidos[1][0] == parecidos[0][0]):
+        return jsonify(None)
+    perfil = parecidos[0][1]
+    if not perfil.get("superior"):
+        return jsonify(None)
+    otros = rows_to_list(con.execute("SELECT id, nombre, cargo, area FROM lideres WHERE id IS NOT ?", (lid,)))
+    jefe_id, motivo = perfiles.lider_del_perfil(perfil, otros, catalogo)
+    jefe = next((l for l in otros if l["id"] == jefe_id), None)
+    return jsonify({"perfil": perfil["titulo"], "superior": perfil["superior"],
+                    "jefe_id": jefe_id, "jefe_nombre": jefe["nombre"] if jefe else None, "motivo": motivo})
 
 
 @app.get("/api/lideres/<int:lid>")
@@ -327,7 +411,7 @@ def api_editar_lider(lid: int):
     anterior = con.execute("SELECT cv_archivo FROM lideres WHERE id=?", (lid,)).fetchone()
     if not anterior:
         abort(404)
-    lider = _validar_lider(request.form)
+    lider = _validar_lider(request.form, lid)
     archivo = _archivo_cv()
     if archivo:  # si no sube una nueva hoja de vida, se conserva la anterior
         lider["cv_archivo"], lider["cv_texto"] = _guardar_cv(archivo)
@@ -349,6 +433,7 @@ def api_borrar_lider(lid: int):
     fila = con.execute("SELECT cv_archivo FROM lideres WHERE id=?", (lid,)).fetchone()
     if fila and fila["cv_archivo"]:
         (UPLOADS / fila["cv_archivo"]).unlink(missing_ok=True)
+    con.execute("UPDATE lideres SET jefe_id=NULL WHERE jefe_id=?", (lid,))  # su equipo queda sin jefe asignado
     con.execute("DELETE FROM lideres WHERE id=?", (lid,))
     con.commit()
     return "", 204
@@ -393,6 +478,7 @@ def _validar_vacante(data: dict, requerir_perfil: bool = True) -> tuple[dict, li
                                   f"(llevas {len(vac['descripcion'])}).")
     if vac["elemento_afin"] not in astro.ELEMENTOS:
         vac["elemento_afin"] = None
+    vac["tecnico"] = 1 if data.get("tecnico") in (True, 1, "1", "true", "on") else 0
     try:
         vac["lider_id"] = int(data.get("lider_id"))
         if not get_db().execute("SELECT 1 FROM lideres WHERE id=?", (vac["lider_id"],)).fetchone():
@@ -416,6 +502,7 @@ def _validar_vacante(data: dict, requerir_perfil: bool = True) -> tuple[dict, li
                 "peso": _entero(h.get("peso"), 3, 1, 5),
                 "nivel": _entero(h.get("nivel"), 3, 1, 5),
                 "palabras_clave": _texto(h, "palabras_clave"),
+                "tipo": h.get("tipo") if h.get("tipo") in ("tecnica", "blanda") else perfiles.tipo_habilidad(nombre),
             })
     if len(habilidades) < 3:
         errores["habilidades"] = "Define al menos 3 habilidades para construir la matriz."
@@ -430,8 +517,8 @@ def _validar_vacante(data: dict, requerir_perfil: bool = True) -> tuple[dict, li
 def _guardar_habilidades(con, vid: int, habilidades: list[dict]):
     con.execute("DELETE FROM habilidades WHERE vacante_id=?", (vid,))
     con.executemany(
-        "INSERT INTO habilidades (vacante_id, nombre, peso, nivel, palabras_clave) VALUES (?,?,?,?,?)",
-        [(vid, h["nombre"], h["peso"], h["nivel"], h["palabras_clave"]) for h in habilidades])
+        "INSERT INTO habilidades (vacante_id, nombre, peso, nivel, palabras_clave, tipo) VALUES (?,?,?,?,?,?)",
+        [(vid, h["nombre"], h["peso"], h["nivel"], h["palabras_clave"], h["tipo"]) for h in habilidades])
 
 
 def _vacante_completa(con, vid: int) -> dict | None:
@@ -467,6 +554,7 @@ def api_vacante(vid: int):
         SELECT id, nombre, email, puntaje, decision_lider, creado,
                json_extract(resultado, '$.lecturas') AS lecturas,
                json_extract(resultado, '$.destaca') AS destaca,
+               json_extract(resultado, '$.potencial.puntaje') AS potencial,
                json_extract(carta, '$.posiciones.sol.signo') AS signo_sol
         FROM candidatos WHERE vacante_id=? ORDER BY puntaje DESC""", (vid,)))
     for c in vac["candidatos"]:
@@ -578,6 +666,7 @@ def api_vacante_publica(vid: int):
         "lider_cargo": vac["lider_cargo"], "empresa": empresa["nombre"] if empresa else None,
         "habilidades": [{"nombre": h["nombre"], "nivel": h["nivel"]} for h in vac["habilidades"]],
         "requisitos": perfiles.requisitos(perfiles.obtener(con, vac["perfil_id"], vac["perfil_archivo"])),
+        "tecnico": bool(vac["tecnico"]),
     })
 
 
@@ -651,13 +740,20 @@ def _evaluar(con, vac: dict, cand: dict, consultar_ia: bool = False) -> dict:
     nombres = {"candidato": cand["nombre"].split()[0].title(),
                "lider": lider["nombre"].split()[0].title() if lider else "el líder",
                "empresa": empresa["nombre"] if empresa else "la empresa"}
-    args = (vac, vac["habilidades"], cand["cv_texto"], cand["carta"],
+    # Las palabras clave se buscan en la hoja de vida y en el trabajo en línea que cuenta para el cargo
+    # (en los técnicos, GitHub y el repositorio; en todos, el portafolio).
+    en_linea = enlaces.filtrar(cand.get("enlaces"), enlaces.campos_para(vac.get("tecnico")))
+    evidencia = "\n".join(t for t in (cand["cv_texto"], enlaces.texto_para_claves(en_linea)) if t)
+    args = (vac, vac["habilidades"], evidencia, cand["carta"],
             lider["carta"] if lider else None, empresa["carta"] if empresa else None, nombres)
     if consultar_ia:
         perfil = perfiles.obtener(con, vac.get("perfil_id"), vac.get("perfil_archivo"))
-        cand["ia"] = oraculo.consultar({**vac, "perfil_oficial": perfil, "expectativas_cargo": perfiles.expectativas(perfil)},
-                                       lider, empresa, cand,
-                                       evaluador.evaluar(*args))
+        nuevo = oraculo.consultar({**vac, "perfil_oficial": perfil, "expectativas_cargo": perfiles.expectativas(perfil)},
+                                  lider, empresa, {**cand, "enlaces": en_linea}, evaluador.evaluar(*args))
+        if nuevo and nuevo.get("error") and cand.get("ia") and not cand["ia"].get("error"):
+            cand["error_ia"] = nuevo["error"]  # si la consulta falla, se conserva el dictamen anterior
+        else:
+            cand["ia"] = nuevo
     return evaluador.evaluar(*args, ia=cand.get("ia"))
 
 
@@ -697,16 +793,21 @@ def api_postular(vid: int):
     ext = Path(archivo.filename).suffix.lower() if archivo and archivo.filename else ""
     if ext not in EXT_CV:
         errores["cv"] = "Sube la hoja de vida en PDF, DOCX o TXT."
+    campos = enlaces.campos_para(vac["tecnico"])
+    propios = enlaces.validar(form, errores, campos)
 
     if errores:
         raise ErrorValidacion(errores)
 
     nombre_archivo, cv_texto = _guardar_cv(archivo)
     cand.update(natales)
-    cand.update({"cv_archivo": nombre_archivo, "cv_texto": cv_texto})
+    de_cv = enlaces.desde_cv(UPLOADS / nombre_archivo, cv_texto)
+    cand.update({"cv_archivo": nombre_archivo, "cv_texto": cv_texto,
+                 "enlaces": enlaces.leer(enlaces.combinar(propios, de_cv, campos),
+                                         enlaces.claves_del_cargo(vac["habilidades"]))})
     res = _evaluar(con, vac, cand, consultar_ia=True)
     fila = {**cand, "vacante_id": vid, "resultado": res, "puntaje": res["puntaje"]}
-    for col in ("carta", "resultado", "ia"):
+    for col in ("carta", "resultado", "ia", "enlaces"):
         fila[col] = json.dumps(fila[col], ensure_ascii=False) if fila.get(col) else None
     cur = con.execute(f"INSERT INTO candidatos ({', '.join(fila)}) "
                       f"VALUES ({', '.join('?' * len(fila))})", tuple(fila.values()))
@@ -735,21 +836,60 @@ def api_candidato(cid: int):
                     "ia": {"activa": oraculo.activo(), "modelo": oraculo.modelo()}})
 
 
+def _releer_enlaces(con, cand: dict, vac: dict, propios: dict[str, str] | None = None) -> None:
+    """Vuelve a visitar los enlaces del postulante y guarda lo leído en cand["enlaces"] y en la base.
+
+    Solo se leen los que cuentan para el cargo (técnico o no). Sin `propios` se releen los
+    guardados. Con `propios` (el formulario de edición), o si no hay guardados, se toman esos y
+    los que falten salen de la hoja de vida."""
+    campos = enlaces.campos_para(vac["tecnico"])
+    actuales = enlaces.urls(cand.get("enlaces"), campos) if propios is None else {}
+    if not actuales:
+        ruta = UPLOADS / cand["cv_archivo"] if cand.get("cv_archivo") else None
+        actuales = enlaces.combinar(propios or {}, enlaces.desde_cv(ruta, cand.get("cv_texto") or ""), campos)
+    cand["enlaces"] = enlaces.leer(actuales, enlaces.claves_del_cargo(vac["habilidades"]))
+    con.execute("UPDATE candidatos SET enlaces=? WHERE id=?",
+                (json.dumps(cand["enlaces"], ensure_ascii=False) if cand["enlaces"] else None, cand["id"]))
+
+
 @app.post("/api/candidatos/<int:cid>/oraculo")
 def api_reconsultar(cid: int):
-    """Vuelve a pedirle el dictamen a la IA y recalcula el match del postulante."""
+    """Relee los enlaces, vuelve a pedirle el dictamen a la IA y recalcula el match del postulante."""
     if not oraculo.activo():
         return jsonify({"error": "Configura GROQ_API_KEY en el archivo .env para usar la IA."}), 409
     con = get_db()
     cand = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
     if not cand:
         abort(404)
-    res = _evaluar(con, _vacante_completa(con, cand["vacante_id"]), cand, consultar_ia=True)
+    vac = _vacante_completa(con, cand["vacante_id"])
+    _releer_enlaces(con, cand, vac)
+    res = _evaluar(con, vac, cand, consultar_ia=True)
     _guardar_resultado(con, cid, cand, res)
     con.commit()
-    if cand["ia"] and cand["ia"].get("error"):
-        return jsonify({"error": cand["ia"]["error"]}), 502
+    error = cand.get("error_ia") or (cand["ia"] or {}).get("error")
+    if error:
+        anterior = " Se conservó el dictamen anterior." if cand.get("error_ia") else ""
+        return jsonify({"error": error + anterior}), 502
     return jsonify({"puntaje": res["puntaje"]})
+
+
+@app.put("/api/candidatos/<int:cid>/enlaces")
+def api_editar_enlaces(cid: int):
+    """Cambia los enlaces del postulante, los lee y recalcula el match (con la IA si está activa)."""
+    con = get_db()
+    cand = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
+    if not cand:
+        abort(404)
+    vac = _vacante_completa(con, cand["vacante_id"])
+    errores: dict[str, str] = {}
+    propios = enlaces.validar(request.get_json(force=True) or {}, errores, enlaces.campos_para(vac["tecnico"]))
+    if errores:
+        raise ErrorValidacion(errores)
+    _releer_enlaces(con, cand, vac, propios)
+    res = _evaluar(con, vac, cand, consultar_ia=oraculo.activo())
+    _guardar_resultado(con, cid, cand, res)
+    con.commit()
+    return jsonify({"puntaje": res["puntaje"], "enlaces": cand["enlaces"], "error_ia": cand.get("error_ia")})
 
 
 @app.patch("/api/candidatos/<int:cid>/decision")
@@ -782,10 +922,25 @@ def api_cv(cid: int):
     return _enviar_cv(fila["cv_archivo"] if fila else None)
 
 
+def _marcar_tecnicos(con) -> None:
+    """Sugiere qué cargos existentes son técnicos, por su nombre y sus habilidades (luego se puede cambiar)."""
+    for vid, cargo in con.execute("SELECT id, cargo FROM vacantes").fetchall():
+        habs = [f"{n} {k}" for n, k in con.execute(
+            "SELECT nombre, palabras_clave FROM habilidades WHERE vacante_id=?", (vid,))]
+        con.execute("UPDATE vacantes SET tecnico=? WHERE id=?", (int(perfiles.es_tecnico(cargo, *habs)), vid))
+    con.commit()
+
+
 def preparar_db() -> None:
     """Crea o migra las tablas. Para cargar datos de demostración: python seed.py"""
     con = connect()
-    init_db(con)
+    agregadas = init_db(con)
+    if ("vacantes", "tecnico") in agregadas:
+        _marcar_tecnicos(con)
+    if ("habilidades", "tipo") in agregadas:
+        for hid, nombre in con.execute("SELECT id, nombre FROM habilidades").fetchall():
+            con.execute("UPDATE habilidades SET tipo=? WHERE id=?", (perfiles.tipo_habilidad(nombre), hid))
+        con.commit()
     # Cartas guardadas con una versión anterior: se recalculan sus atributos y su perfil de conflicto.
     cartas_nuevas = 0
     for tabla in ("lideres", "candidatos", "empresa"):
@@ -800,7 +955,8 @@ def preparar_db() -> None:
     # Si cambiaron las cartas o el modelo, se recalculan los resultados (sin volver a llamar a la IA).
     viejos = {r["vacante_id"] for r in con.execute(
         "SELECT vacante_id FROM candidatos WHERE resultado NOT LIKE '%\"conflicto\": {%'"
-        " OR resultado NOT LIKE '%\"lecturas\"%'" + ("" if not cartas_nuevas else " OR 1"))}
+        " OR resultado NOT LIKE '%\"lecturas\"%' OR resultado NOT LIKE '%\"evidencia_tipo\"%'"
+        + ("" if not cartas_nuevas else " OR 1"))}
     if viejos:
         with app.app_context():
             for vid in viejos:

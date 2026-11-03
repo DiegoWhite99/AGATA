@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS lideres (
     estilo_liderazgo TEXT NOT NULL,
     expectativas TEXT NOT NULL,
     equipo TEXT,
+    jefe_id INTEGER REFERENCES lideres(id) ON DELETE SET NULL,  -- cadena de mando entre líderes
     fecha_nac TEXT,
     hora_nac TEXT,
     ciudad TEXT,
@@ -64,6 +65,7 @@ CREATE TABLE IF NOT EXISTS vacantes (
     peso_empresa REAL NOT NULL DEFAULT 25,
     peso_elemento REAL NOT NULL DEFAULT 10,
     peso_conflicto REAL NOT NULL DEFAULT 10,
+    tecnico INTEGER NOT NULL DEFAULT 0,
     estado TEXT NOT NULL DEFAULT 'abierta',
     creado TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -74,7 +76,8 @@ CREATE TABLE IF NOT EXISTS habilidades (
     nombre TEXT NOT NULL,
     peso INTEGER NOT NULL DEFAULT 3,
     nivel INTEGER NOT NULL DEFAULT 3,
-    palabras_clave TEXT NOT NULL DEFAULT ''
+    palabras_clave TEXT NOT NULL DEFAULT '',
+    tipo TEXT NOT NULL DEFAULT 'tecnica'  -- 'tecnica' o 'blanda'
 );
 
 CREATE TABLE IF NOT EXISTS candidatos (
@@ -99,6 +102,7 @@ CREATE TABLE IF NOT EXISTS candidatos (
     veredicto TEXT,  -- sin uso desde 1.2.0: el match ya no clasifica ni descarta
     decision_lider TEXT,
     nota_lider TEXT,
+    enlaces TEXT,
     creado TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -110,7 +114,7 @@ CREATE TABLE IF NOT EXISTS perfiles_cache (
 );
 """
 
-JSON_COLS = {"carta", "resultado", "ia", "verificacion"}
+JSON_COLS = {"carta", "resultado", "ia", "verificacion", "enlaces"}
 
 # Columnas agregadas después de la primera versión (para bases ya creadas).
 MIGRACIONES = [
@@ -129,6 +133,14 @@ MIGRACIONES = [
     # v5: cada cargo se liga a un perfil de la carpeta perfiles/.
     ("vacantes", "perfil_id", "TEXT"),
     ("vacantes", "perfil_archivo", "TEXT"),
+    # v6: GitHub, LinkedIn, portafolio y repositorio del postulante, con lo que se leyó de cada uno.
+    ("candidatos", "enlaces", "TEXT"),
+    # v7: los cargos técnicos piden GitHub, LinkedIn y repositorio; los demás, solo el portafolio.
+    ("vacantes", "tecnico", "INTEGER NOT NULL DEFAULT 0"),
+    # v8: las habilidades blandas no se buscan por palabras clave; las lee o las deduce la IA.
+    ("habilidades", "tipo", "TEXT NOT NULL DEFAULT 'tecnica'"),
+    # v9: cadena de mando: el jefe inmediato de cada líder (para la Red).
+    ("lideres", "jefe_id", "INTEGER REFERENCES lideres(id) ON DELETE SET NULL"),
 ]
 
 
@@ -151,7 +163,8 @@ def close_db(_exc=None) -> None:
         con.close()
 
 
-def init_db(con: sqlite3.Connection) -> None:
+def init_db(con: sqlite3.Connection) -> set[tuple[str, str]]:
+    """Crea o migra las tablas. Devuelve las columnas (tabla, columna) que se acaban de agregar."""
     con.executescript(SCHEMA)
     agregadas = set()
     for tabla, columna, tipo in MIGRACIONES:
@@ -163,6 +176,7 @@ def init_db(con: sqlite3.Connection) -> None:
         # Los cargos existentes pasan al reparto centrado en lo astral (70 % cartas, 30 % perfil).
         con.execute("UPDATE vacantes SET peso_cv = 20, peso_ia = 10")
     con.commit()
+    return agregadas
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict | None:

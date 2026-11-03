@@ -1,13 +1,14 @@
 import { api, ApiError } from "../api.js";
-import { COLOR_ELEMENTO, fichaConflicto, MODOS, panelAtributos, rejillaSinastria, TEMA_CORTO, tarjetaCarta, } from "../astro-ui.js";
+import { fichaConflicto, MODOS, panelAtributos, rejillaSinastria, TEMA_CORTO, tarjetaCarta, } from "../astro-ui.js";
 import { radar } from "../radar.js";
-import { $, $$, anillo, badgeDecision, barra, colorPuntaje, confirmar, esc, fecha, laurel, toast, vacio, } from "../ui.js";
+import { $, $$, anillo, badgeDecision, barra, colorPuntaje, confirmar, esc, fecha, laurel, mostrarErrores, toast, vacio, } from "../ui.js";
 const raiz = $("#informe");
 const id = Number(raiz.dataset.id);
 let datos;
 let pestana = "lider";
 let dicta = "postulante";
-const ESTADO_TXT = { cumple: "Cumple", parcial: "Parcial", brecha: "Brecha" };
+const ESTADO_TXT = { cumple: "Cumple", parcial: "Parcial", brecha: "Por explorar", sin_lectura: "Sin lectura IA" };
+const EVIDENCIA_TXT = { directa: "Directa", deducida: "Deducida de proyectos", "sin evidencia": "Sin evidencia" };
 const COMPONENTES = [
     { clave: "lider", nombre: "Sinastría con el líder" },
     { clave: "empresa", nombre: "Sinastría con la empresa" },
@@ -40,12 +41,13 @@ function lista(items, vacioTxt) {
     return items.length ? `<ul class="lista-oraculo">${items.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>` : `<p class="meta">${vacioTxt}</p>`;
 }
 // --- Sinastría ------------------------------------------------------------------
-function kpiSinastria(titulo, sin, faltante) {
+/** `color` identifica a quién se compara (líder, empresa o elemento) y es el mismo del radar. */
+function kpiSinastria(titulo, sin, faltante, color) {
     if (!sin)
-        return `<div class="kpi kpi-sinastria apagado"><strong>—</strong><span>${titulo}</span><p class="meta">${faltante}</p></div>`;
-    return `<div class="kpi kpi-sinastria">
-      <strong style="color:${colorPuntaje(sin.puntaje)}">${sin.puntaje.toFixed(0)}%</strong>
-      <span>${titulo}</span>
+        return `<div class="kpi kpi-sinastria apagado" style="--c:${color}"><strong>—</strong><span><i class="marca-serie"></i>${titulo}</span><p class="meta">${faltante}</p></div>`;
+    return `<div class="kpi kpi-sinastria" style="--c:${color}">
+      <strong>${sin.puntaje.toFixed(0)}%</strong>
+      <span><i class="marca-serie"></i>${titulo}</span>
       <p class="meta">${sin.armonicos} aspectos armónicos · ${sin.tensos} tensos · afinidad elemental ${sin.elemental.toFixed(0)}%</p>
     </div>`;
 }
@@ -73,9 +75,9 @@ function seccionSinastria() {
     const claves = Object.keys(TEMA_CORTO).filter((k) => c.carta.posiciones[k]);
     const series = [];
     if (sin.lider)
-        series.push({ nombre: `Con ${primerNombre(l.nombre)}`, valores: claves.map((k) => sin.lider.por_astro[k] ?? 50), color: "var(--gold)" });
+        series.push({ nombre: `Con ${primerNombre(l.nombre)}`, valores: claves.map((k) => sin.lider.por_astro[k] ?? 50), color: "var(--c-lider)" });
     if (sin.empresa)
-        series.push({ nombre: `Con ${e?.nombre ?? "la empresa"}`, valores: claves.map((k) => sin.empresa.por_astro[k] ?? 50), color: "var(--aire)" });
+        series.push({ nombre: `Con ${e?.nombre ?? "la empresa"}`, valores: claves.map((k) => sin.empresa.por_astro[k] ?? 50), color: "var(--c-empresa)" });
     const radarSin = series.length
         ? radar(claves.map((k) => TEMA_CORTO[k]), series, { tam: 340, titulo: "Armonía de cada astro del postulante" })
         : `<p class="nota">Faltan las cartas del líder y de la empresa para medir la sinastría.</p>`;
@@ -83,10 +85,10 @@ function seccionSinastria() {
       <header class="tarjeta-cab"><div><p class="eyebrow">El corazón del match</p><h2>Sinastría</h2></div></header>
       <div class="sinastria-cab">
         <div class="sinastria-kpis">
-          ${kpiSinastria(`Con ${esc(l.nombre)} (líder)`, sin.lider, "El líder no tiene datos natales.")}
-          ${kpiSinastria(`Con ${esc(e?.nombre ?? "la empresa")}`, sin.empresa, "Falta la carta de la empresa.")}
-          ${c.resultado.elemento?.afin ? `<div class="kpi kpi-sinastria"><strong style="color:${COLOR_ELEMENTO[c.resultado.elemento.afin]}">${(c.resultado.elemento.puntaje ?? 0).toFixed(0)}%</strong>
-            <span>Presencia de ${esc(c.resultado.elemento.afin)}, elemento del cargo</span></div>` : ""}
+          ${kpiSinastria(`Con ${esc(l.nombre)} (líder)`, sin.lider, "El líder no tiene datos natales.", "var(--c-lider)")}
+          ${kpiSinastria(`Con ${esc(e?.nombre ?? "la empresa")}`, sin.empresa, "Falta la carta de la empresa.", "var(--c-empresa)")}
+          ${c.resultado.elemento?.afin ? `<div class="kpi kpi-sinastria" style="--c:var(--c-elemento)"><strong>${(c.resultado.elemento.puntaje ?? 0).toFixed(0)}%</strong>
+            <span><i class="marca-serie"></i>Presencia de ${esc(c.resultado.elemento.afin)}, elemento del cargo</span></div>` : ""}
         </div>
         <div class="sinastria-radar">
           <h3 class="subtitulo centro">Armonía de cada astro de ${esc(primerNombre(c.nombre))}</h3>
@@ -180,6 +182,11 @@ function seccionDictamen() {
       </div>
       ${desactualizado}
       <p class="dictamen-resumen">${esc(ia.resumen)}</p>
+      ${ia.potencial ? `<div class="potencial">
+          <strong>${ia.potencial.puntaje}%</strong>
+          <div><h3 class="subtitulo">Potencial de crecimiento</h3><p class="parrafo">${esc(ia.potencial.lectura)}</p>
+            ${ia.potencial.senales.length ? `<ul class="chips">${ia.potencial.senales.map((s) => `<li class="chip chip-potencial">${esc(s)}</li>`).join("")}</ul>` : ""}</div>
+        </div>` : ""}
       <div class="dictamen-grid">
         <div class="ajuste">
           <strong style="color:${colorPuntaje(ia.ajuste_lider)}">${ia.ajuste_lider}%</strong>
@@ -190,6 +197,7 @@ function seccionDictamen() {
           ${lecturaLider ? `<h3 class="subtitulo">Lectura de la sinastría con el líder</h3><p class="parrafo">${esc(lecturaLider)}</p>` : ""}
           ${ia.lectura_sinastria_empresa ? `<h3 class="subtitulo">Lectura de la sinastría con la empresa</h3><p class="parrafo">${esc(ia.lectura_sinastria_empresa)}</p>` : ""}
           ${ia.manejo_conflictos ? `<h3 class="subtitulo">Manejo de conflictos</h3><p class="parrafo">${esc(ia.manejo_conflictos)}</p>` : ""}
+          ${ia.evidencia_en_linea ? `<h3 class="subtitulo">Lo que muestra su trabajo en línea</h3><p class="parrafo">${esc(ia.evidencia_en_linea)}</p>` : ""}
           <h3 class="subtitulo">Lo que el oráculo ve</h3>
           ${lista(ia.fortalezas, "—")}
         </div>
@@ -202,6 +210,118 @@ function seccionDictamen() {
       </div>
       ${ia.recomendacion ? `<p class="parrafo"><strong>Recomendación del oráculo:</strong> ${esc(ia.recomendacion)}</p>` : ""}
     </section>`;
+}
+// --- Trabajo en línea ---------------------------------------------------------------
+const CAMPOS_TECNICO = [
+    { clave: "portafolio", nombre: "Portafolio", ayuda: "tu-sitio.com" },
+    { clave: "github", nombre: "GitHub", ayuda: "usuario o github.com/usuario" },
+    { clave: "repositorio", nombre: "Repositorio destacado", ayuda: "github.com/usuario/proyecto · vacío: el más destacado de su GitHub" },
+    { clave: "linkedin", nombre: "LinkedIn", ayuda: "linkedin.com/in/usuario" },
+];
+/** Todo postulante comparte su portafolio; en los cargos técnicos, también GitHub, repositorio y LinkedIn. */
+const camposEnlace = () => (datos.vacante.tecnico ? CAMPOS_TECNICO : CAMPOS_TECNICO.slice(0, 1));
+const ORIGEN_TXT = { "hoja de vida": "de la hoja de vida", github: "elegido de su GitHub" };
+// El backend solo guarda URLs http(s); esc() protege el atributo.
+const enlace = (url, texto = url) => `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer nofollow">${esc(texto)}</a>`;
+function estadoEnlace(e) {
+    const origen = ORIGEN_TXT[e.origen] ? `<span class="chip">${ORIGEN_TXT[e.origen]}</span>` : "";
+    const estado = e.leido
+        ? `<span class="chip chip-ok">leído por el oráculo</span>`
+        : e.error ? `<span class="ia-error">${esc(e.error)}</span>` : `<span class="meta">${esc(e.nota ?? "")}</span>`;
+    return origen + estado;
+}
+function fichaGithub(gh) {
+    if (!gh.leido)
+        return "";
+    const repos = (gh.repos ?? []).slice(0, 6).map((r) => `<li>
+      <div>${enlace(r.url, r.nombre)} ${r.lenguaje ? `<span class="chip">${esc(r.lenguaje)}</span>` : ""}
+        ${r.estrellas ? `<span class="meta-inline">★ ${r.estrellas}</span>` : ""}
+        <span class="meta-inline">· ${esc(r.actualizado)}</span></div>
+      ${r.descripcion ? `<p class="meta">${esc(r.descripcion)}</p>` : ""}
+    </li>`).join("");
+    return `<div class="ficha-enlace">
+      <h3 class="subtitulo">GitHub · @${esc(gh.usuario)}</h3>
+      <p class="meta">${gh.repos_publicos ?? 0} repositorios públicos · ${gh.seguidores ?? 0} seguidores
+        ${gh.desde ? ` · en GitHub desde ${esc(gh.desde.slice(0, 4))}` : ""}</p>
+      ${gh.bio ? `<p class="parrafo">${esc(gh.bio)}</p>` : ""}
+      ${gh.lenguajes?.length ? `<ul class="chips">${gh.lenguajes.map((l) => `<li class="chip">${esc(l)}</li>`).join("")}</ul>` : ""}
+      <h4 class="mini-titulo">Actividad reciente</h4>
+      <ul class="repos">${repos || `<li class="meta">Sin repositorios propios públicos.</li>`}</ul>
+    </div>`;
+}
+function fichaPagina(titulo, p) {
+    if (!p.leido)
+        return "";
+    return `<div class="ficha-enlace">
+      <h3 class="subtitulo">${titulo}${p.titulo ? ` · ${esc(p.titulo)}` : ""}</h3>
+      ${p.descripcion ? `<p class="parrafo">${esc(p.descripcion)}</p>` : ""}
+      ${p.poco_texto ? `<p class="nota">La página se arma con JavaScript: el oráculo solo pudo leer su título y su descripción.</p>` : ""}
+    </div>`;
+}
+function fichaRepo(r) {
+    if (!r.leido)
+        return "";
+    if (r.tipo === "pagina")
+        return fichaPagina("Repositorio destacado", r);
+    return `<div class="ficha-enlace">
+      <h3 class="subtitulo">Repositorio destacado · ${esc(r.nombre)}</h3>
+      ${r.descripcion ? `<p class="parrafo">${esc(r.descripcion)}</p>` : ""}
+      <p class="meta">${(r.lenguajes ?? []).filter((l) => l.pct > 0).map((l) => `${esc(l.nombre)} ${l.pct}%`).join(" · ")}
+        ${r.actualizado ? ` · actualizado ${esc(r.actualizado)}` : ""}</p>
+      ${r.readme ? `<details><summary>README</summary><p class="parrafo">${esc(r.readme.slice(0, 1200))}${r.readme.length > 1200 ? "…" : ""}</p></details>`
+        : `<p class="meta">El repositorio no tiene README.</p>`}
+    </div>`;
+}
+function seccionEnlaces() {
+    const en = datos.candidato.enlaces;
+    const filas = camposEnlace().map(({ clave, nombre }) => {
+        const e = en?.[clave];
+        return `<li class="lista-item">
+        <div><strong class="lista-titulo">${nombre}</strong><span class="meta">${e ? enlace(e.url) : "No lo compartió"}</span></div>
+        <div class="lista-acciones">${e ? estadoEnlace(e) : ""}</div>
+      </li>`;
+    }).join("");
+    const fichas = [
+        en?.github ? fichaGithub(en.github) : "",
+        en?.repositorio ? fichaRepo(en.repositorio) : "",
+        en?.portafolio ? fichaPagina("Portafolio", en.portafolio) : "",
+    ].filter(Boolean).join("");
+    return `<section class="tarjeta enlaces">
+      <header class="tarjeta-cab">
+        <div><p class="eyebrow">Lo que ha construido</p><h2>Trabajo en línea</h2></div>
+        ${en?.revisado ? `<span class="meta">Revisado ${esc(en.revisado)}</span>` : ""}
+      </header>
+      <ul class="lista">${filas}</ul>
+      ${fichas ? `<div class="grid-2 fichas-enlace">${fichas}</div>` : ""}
+      <details class="no-print editar-enlaces">
+        <summary>Agregar o corregir enlaces</summary>
+        <form id="form-enlaces" novalidate>
+          <div class="grid-2">${camposEnlace().map(({ clave, nombre, ayuda }) => `<label class="campo"><span>${nombre}</span>
+            <input name="${clave}" value="${esc(en?.[clave]?.origen === "github" ? "" : en?.[clave]?.url ?? "")}" placeholder="${ayuda}" autocomplete="off">
+            <small class="error" data-error="${clave}" hidden></small></label>`).join("")}</div>
+          <div class="acciones-wrap">
+            <button class="btn btn-sm" type="submit">Guardar y volver a leer</button>
+            <span class="meta">Un campo vacío toma el enlace de la hoja de vida, si lo trae. Con el oráculo activo, se recalcula el dictamen.</span>
+          </div>
+        </form>
+      </details>
+    </section>`;
+}
+async function guardarEnlaces(form) {
+    const boton = form.querySelector("button[type=submit]");
+    boton.disabled = true;
+    boton.textContent = "Leyendo los enlaces…";
+    const cuerpo = Object.fromEntries(camposEnlace().map(({ clave }) => [clave, form.elements.namedItem(clave).value.trim()]));
+    try {
+        await api.put(`/api/candidatos/${id}/enlaces`, cuerpo);
+        toast("Enlaces leídos y match recalculado");
+        await cargar();
+    }
+    catch (err) {
+        boton.disabled = false;
+        boton.textContent = "Guardar y volver a leer";
+        mostrarErrores(form, err);
+    }
 }
 // --- Lo que dictan las cartas --------------------------------------------------------
 function dictaDe(quien) {
@@ -223,7 +343,7 @@ function pintar() {
     const radarHabilidades = r.habilidades.length >= 3
         ? radar(r.habilidades.map((h) => h.nombre), [
             { nombre: "Nivel requerido", valores: r.habilidades.map((h) => h.requerido), color: "var(--gold)", punteada: true },
-            { nombre: c.nombre, valores: r.habilidades.map((h) => h.cv), color: "var(--violet)" },
+            { nombre: c.nombre, valores: r.habilidades.map((h) => h.cv ?? 0), color: "var(--violet)" },
         ], { tam: 380, titulo: `Habilidades de ${c.nombre} según su hoja de vida` })
         : "";
     raiz.innerHTML = `
@@ -252,6 +372,7 @@ function pintar() {
         <div class="lecturas">
           ${lectura("Perfil profesional", "Hoja de vida + IA", r.lecturas.profesional)}
           ${lectura("Afinidad astral", "Líder, empresa, elemento y conflictos", r.lecturas.astral)}
+          ${r.potencial ? lectura("Potencial", "Capacidad de crecer (IA) · no suma al puntaje", r.potencial.puntaje) : ""}
         </div>
         ${r.destaca.length ? `<h3 class="subtitulo">Destaca en</h3>
           <ul class="chips">${r.destaca.map((d) => `<li class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</li>`).join("")}</ul>` : ""}
@@ -287,6 +408,8 @@ function pintar() {
     ${seccionConflictos()}
 
     ${seccionDictamen()}
+
+    ${seccionEnlaces()}
 
     <div class="grid-2">
       <section class="tarjeta">
@@ -328,16 +451,22 @@ function pintar() {
         </tr></thead>
         <tbody>${r.habilidades
         .map((h) => `<tr>
-              <td><strong>${esc(h.nombre)}</strong></td>
+              <td><strong>${esc(h.nombre)}</strong><span class="meta">${h.tipo === "blanda" ? "Blanda" : "Técnica"}</span></td>
               <td class="num">${h.peso}</td>
               <td class="num">${h.requerido.toFixed(0)}</td>
-              <td class="num celda-calor" style="--v:${h.cv_claves / 100}">${h.cv_claves.toFixed(0)}</td>
+              ${h.tipo === "blanda"
+        ? `<td class="num" title="Las blandas no se buscan por palabras clave"><span class="meta-inline">—</span></td>`
+        : `<td class="num celda-calor" style="--v:${h.cv_claves / 100}">${h.cv_claves.toFixed(0)}</td>`}
               <td class="num celda-calor" style="--v:${(h.cv_ia ?? 0) / 100}">${h.cv_ia != null ? h.cv_ia.toFixed(0) : "—"}</td>
-              <td class="num"><strong>${h.cv.toFixed(0)}</strong></td>
-              <td><div class="cobertura">${barra(h.cobertura)}<span class="num">${h.cobertura.toFixed(0)}%</span></div></td>
+              <td class="num"><strong>${h.cv != null ? h.cv.toFixed(0) : "—"}</strong></td>
+              <td>${h.cobertura != null ? `<div class="cobertura">${barra(h.cobertura)}<span class="num">${h.cobertura.toFixed(0)}%</span></div>` : `<span class="meta">—</span>`}</td>
               <td><span class="estado-hab estado-${h.estado}">${ESTADO_TXT[h.estado]}</span></td>
-              <td class="claves">${h.claves_encontradas.length ? h.claves_encontradas.map((k) => `<span class="chip">${esc(k)}</span>`).join("") : `<span class="meta">Sin palabras clave</span>`}
-                ${h.evidencia_ia ? `<p class="evidencia-ia">${esc(h.evidencia_ia)}</p>` : ""}</td>
+              <td class="claves">
+                ${h.evidencia_tipo ? `<span class="chip ${h.evidencia_tipo === "deducida" ? "chip-potencial" : h.evidencia_tipo === "directa" ? "chip-ok" : ""}">${EVIDENCIA_TXT[h.evidencia_tipo]}</span>` : ""}
+                ${h.fuente ? `<span class="meta-inline">${esc(h.fuente)}</span>` : ""}
+                ${h.tipo !== "blanda" && h.claves_encontradas.length ? h.claves_encontradas.map((k) => `<span class="chip">${esc(k)}</span>`).join("") : ""}
+                ${h.evidencia_ia ? `<p class="evidencia-ia">${esc(h.evidencia_ia)}</p>` : ""}
+                ${!h.evidencia_tipo && !h.evidencia_ia && !h.claves_encontradas.length ? `<span class="meta">Sin evidencia</span>` : ""}</td>
             </tr>`)
         .join("")}</tbody>
       </table></div>
@@ -396,6 +525,13 @@ raiz.addEventListener("click", async (e) => {
         await api.del(`/api/candidatos/${id}`);
         location.href = `/vacantes/${datos.vacante.id}`;
     }
+});
+raiz.addEventListener("submit", async (e) => {
+    const form = e.target.closest("#form-enlaces");
+    if (!form)
+        return;
+    e.preventDefault();
+    await guardarEnlaces(form);
 });
 cargar().catch(() => {
     raiz.innerHTML = vacio("∅", "Informe no encontrado", "Puede que la postulación haya sido eliminada.", `<a class="btn" href="/vacantes">Volver</a>`);

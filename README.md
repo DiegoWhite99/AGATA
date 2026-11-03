@@ -76,11 +76,29 @@ npm run build      # o: npm run watch
    conocimientos), no del texto general del líder; así lo ve la vacante y así lo usa el oráculo IA.
    Plantilla para un perfil propio: `/api/perfiles/plantilla.xlsx` o `.csv`.
 5. **Postulación** (`/postular/<id>`): muestra los requisitos del perfil (formación, experiencia y
-   conocimientos) y sigue con: datos → registro de los astros → **lo que dicta su carta** → hoja de vida → envío.
-   Sin tests ni preguntas: la carta astral es la regla.
+   conocimientos) y sigue con: datos → registro de los astros → **lo que dicta su carta** → hoja de vida y
+   **trabajo en línea** → envío. Sin tests ni preguntas: la carta astral es la regla.
+
+   **Trabajo en línea** (opcional): todo postulante comparte su **portafolio**. En los **cargos técnicos**
+   (ingeniería, desarrollo, datos o IA; la casilla se marca sola al elegir el perfil y se puede cambiar) también
+   GitHub, LinkedIn y su repositorio destacado. Si el postulante no los escribe, se toman de la hoja de vida,
+   incluidos los hipervínculos escondidos tras íconos en un PDF o un Word. Si no indica repositorio destacado,
+   AGATA elige el más destacado de su GitHub (estrellas y forks en escala logarítmica, actividad reciente,
+   documentación y relación con las habilidades del cargo). GitHub se lee con su API pública y el portafolio
+   como página web. LinkedIn no permite que un programa lea sus perfiles: se guarda el enlace para el líder. En
+   los cargos técnicos, el oráculo IA pesa esa evidencia tanto o más que la hoja de vida. Desde el informe se
+   pueden agregar o corregir los enlaces, y **Reconsultar al oráculo** los vuelve a leer.
 6. **Informe**: puesto en el ranking de la vacante, perfil profesional y afinidad astral, en qué destaca, las tres
    cartas, sinastría (rejilla de aspectos, radar por astro y lecturas), manejo de conflictos, lo que dictan las tres
    cartas, dictamen del oráculo IA, hoja de vida (puntos a favor y lo que conviene explorar) y decisión del líder.
+
+**Roles y Red**: cada carta (líder, postulante y empresa) recibe un rol arquetípico según su elemento y su modalidad
+dominantes: El Pionero, El Guardián de la llama, El Explorador, El Arquitecto, El Constructor, El Artesano, El
+Estratega, El Visionario, El Mensajero, El Guía, El Oráculo y El Alquimista. En **Líderes** se registra el **jefe
+inmediato** de cada líder (cadena de mando; se sugiere desde el perfil de su cargo y no admite ciclos). La sección
+**Red** (`/red`) dibuja esa cadena como una red neuronal: el líder (o la empresa) es el nodo central y la red se
+despliega hacia los líderes de su equipo, sus cargos y los postulantes. Cada sinapsis brilla y se engrosa según la
+sinastría con quien está arriba.
 
 **Lo que dicta la carta**: cada carta (postulante, líder y empresa) fija sus reglas: elemento dominante,
 modalidad dominante y estilo ante el conflicto, más un rasgo por astro, por ejemplo "Comunicación: precisa,
@@ -100,8 +118,18 @@ y un consejo para cada uno.
 | Sinastría con la empresa | 25 | Lo mismo, contra la carta de fundación de la empresa |
 | Elemento afín al cargo | 10 | Presencia en la carta del elemento que pide el cargo |
 | Manejo de conflictos | 10 | Compatibilidad de estilos de conflicto con el líder + aspectos entre Marte, Luna, Mercurio, Sol y Saturno |
-| Hoja de vida | 20 | 40 % palabras clave + 60 % lectura semántica de la IA, frente al nivel requerido y al perfil institucional del cargo |
+| Hoja de vida | 20 | Lectura de la IA en la hoja de vida y el trabajo en línea, frente al nivel requerido y al perfil institucional del cargo. En las habilidades técnicas, las palabras clave (40 %) solo pueden subir la nota; las blandas no se buscan por palabras clave |
 | Ajuste con el líder (IA) | 10 | El oráculo compara el perfil con lo que espera el líder |
+
+**Habilidades técnicas y blandas**: cada habilidad del cargo es técnica o blanda (sale del perfil y se puede
+cambiar). Una hoja de vida centrada en proyectos rara vez escribe "trabajo en equipo" o "proactividad", así que la
+IA deduce las blandas de los proyectos (integrar hardware y software, construir herramientas propias, documentar,
+entregar productos…). Cada nota dice si la evidencia es **directa**, **deducida de proyectos** o no hay, y de dónde
+salió; las preguntas de entrevista validan lo deducido.
+
+**Potencial**: una lectura aparte de la IA, que no suma al puntaje, sobre la capacidad de crecer: tecnologías nuevas
+con el tiempo (la trayectoria de GitHub), proyectos cada vez más complejos, constancia e iniciativa. Así un perfil
+con poca experiencia formal pero que aprende rápido no pasa inadvertido.
 
 Lo astral pesa cerca del 73 % por defecto; cada cargo puede cambiar los pesos. Si falta un componente (por ejemplo, la
 empresa aún no tiene carta), queda fuera y los demás se reparten su peso. El puntaje total sirve para ordenar; el
@@ -119,6 +147,7 @@ La carta astral se calcula en `astro.py` sin librerías externas (Meeus y elemen
 app.py          Flask: páginas y API REST
 oraculo.py      Agente de IA (Groq): lectura del CV, ajuste con el líder y dictamen
 evaluador.py    Lectura del CV y cálculo del match
+enlaces.py      Trabajo en línea: detecta y lee GitHub, portafolio y repositorio (LinkedIn solo como enlace)
 perfiles.py     Catálogo de la carpeta perfiles/: lectura del formato institucional y propuesta del cargo
 perfil_cargo.py Lectura general de perfiles en PDF, Word, TXT, CSV o Excel libre
 perfiles/       Perfiles de cargo (fuente de todo cargo nuevo)

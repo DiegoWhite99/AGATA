@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block titulo %}Red{% endblock %}
+{% block contenido %}
+<div id="red-pagina">
+  <header class="pagina-cab">
+    <div>
+      <p class="eyebrow">Sinapsis del equipo</p>
+      <h1>La red</h1>
+      <p class="lead">El líder es el nodo central y la red se despliega por la cadena de mando hacia sus cargos y sus
+        postulantes. Cada conexión es una sinapsis: su grosor y su brillo muestran la sinastría con quien está arriba.</p>
+    </div>
+    <div class="red-controles">
+      <label class="campo"><span>Nodo central</span><select id="red-centro"></select></label>
+      <label class="campo-check"><input type="checkbox" id="red-postulantes" checked><span>Mostrar postulantes</span></label>
+      <label class="campo-check"><input type="checkbox" id="red-cerradas"><span>Incluir vacantes cerradas</span></label>
+    </div>
+  </header>
+
+  <section class="tarjeta red-lienzo">
+    <div id="red"><p class="cargando">Trazando la red…</p></div>
+    <div id="red-tip" class="red-tip" role="status" hidden></div>
+    <div class="red-leyenda" id="red-leyenda"></div>
+  </section>
+
+  <section class="tarjeta">
+    <header class="tarjeta-cab"><div><p class="eyebrow">Según la carta astral</p><h2>Roles en la red</h2></div></header>
+    <div id="red-roles" class="red-roles"></div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/red.js') }}"></script>{% endblock %}
