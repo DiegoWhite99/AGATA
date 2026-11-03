@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { COLOR_ELEMENTO, SIGNOS } from "../astro-ui.js";
-import { $, badgeDecision, badgeVeredicto, barra, colorPuntaje, esc, fecha, toast, vacio } from "../ui.js";
+import { $, badgeDecision, barra, esc, fecha, toast, vacio } from "../ui.js";
 function kpi(valor, etiqueta, clase = "") {
     return `<div class="kpi ${clase}"><strong>${valor}</strong><span>${etiqueta}</span></div>`;
 }
@@ -48,16 +48,16 @@ async function cargar() {
     $("#kpis").innerHTML = `
     ${kpi(d.vacantes_abiertas, "Vacantes abiertas")}
     ${kpi(d.candidatos, "Postulantes evaluados")}
-    ${kpi(d.match, "Match", "kpi-match")}
-    ${kpi(d.decision, "En decisión", "kpi-decision")}
-    ${kpi(d.descartado, "Descartados", "kpi-descartado")}
-    <div class="kpi kpi-distribucion" aria-label="Distribución de veredictos">
+    ${kpi(d.pendientes, "Por decidir", "kpi-pendiente")}
+    ${kpi(d.aprobados, "Aprobados por el líder", "kpi-aprobado")}
+    ${kpi(d.rechazados, "Rechazados por el líder", "kpi-rechazado")}
+    <div class="kpi kpi-distribucion" aria-label="Decisiones del líder">
       <div class="apilada">
-        <span style="flex:${d.match / total};background:var(--match)"></span>
-        <span style="flex:${d.decision / total};background:var(--decision)"></span>
-        <span style="flex:${d.descartado / total};background:var(--descartado)"></span>
+        <span style="flex:${d.pendientes / total};background:var(--decision)"></span>
+        <span style="flex:${d.aprobados / total};background:var(--match)"></span>
+        <span style="flex:${d.rechazados / total};background:var(--descartado)"></span>
       </div>
-      <span>Distribución de veredictos</span>
+      <span>Decisiones del líder</span>
     </div>`;
     $("#vacantes-abiertas").innerHTML = d.vacantes.length
         ? `<ul class="lista">${d.vacantes
@@ -67,10 +67,10 @@ async function cargar() {
               <span class="meta">${esc(v.area)} · Líder: ${esc(v.lider_nombre)}</span>
             </div>
             <div class="lista-acciones">
-              <span class="conteos" title="Match / En decisión / Descartados">
-                <i class="punto punto-match"></i>${v.n_match ?? 0}
-                <i class="punto punto-decision"></i>${v.n_decision ?? 0}
-                <i class="punto punto-descartado"></i>${v.n_descartado ?? 0}
+              <span class="conteos" title="Por decidir / Aprobados / Rechazados">
+                <i class="punto punto-pendiente"></i>${v.n_pendientes ?? 0}
+                <i class="punto punto-aprobado"></i>${v.n_aprobados ?? 0}
+                <i class="punto punto-rechazado"></i>${v.n_rechazados ?? 0}
               </span>
               <button class="btn btn-sec btn-sm" data-copiar="${v.id}">Copiar link</button>
             </div>
@@ -85,9 +85,9 @@ async function cargar() {
               <span class="meta">${esc(c.cargo)} · ${fecha(c.creado)}</span>
             </div>
             <div class="lista-puntaje">
-              <span class="num" style="color:${colorPuntaje(c.puntaje)}">${c.puntaje.toFixed(1)}%</span>
-              ${barra(c.puntaje)}
-              <span>${badgeVeredicto(c.veredicto)} ${badgeDecision(c.decision_lider)}</span>
+              <span class="num puntaje-neutro">${c.puntaje.toFixed(1)}%</span>
+              ${barra(c.puntaje, "var(--gold)")}
+              <span>${badgeDecision(c.decision_lider)}</span>
             </div>
           </li>`)
             .join("")}</ul>`

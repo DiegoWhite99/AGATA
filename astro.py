@@ -554,8 +554,8 @@ def sinastria(carta_a: dict, carta_b: dict, nombre_a: str, nombre_b: str) -> dic
     aspectos_pct = 100 * (armonia + k) / (armonia + tension + 2 * k)
     elemental = _afinidad_elemental(carta_a["elementos"], carta_b["elementos"])
     crudo = 0.75 * aspectos_pct + 0.25 * elemental
-    # Calibración: dos cartas al azar dan ~56 ± 8 en crudo; se lleva a ~65 ± 13 para que los
-    # umbrales del veredicto (60 y 80) separen de verdad las sinastrías flojas de las fuertes.
+    # Calibración: dos cartas al azar dan ~56 ± 8 en crudo; se lleva a ~65 ± 13 para que el
+    # puntaje use todo el rango y separe de verdad las sinastrías flojas de las fuertes.
     puntaje = max(0.0, min(100.0, 65 + (crudo - 56) * 1.7))
     aspectos.sort(key=lambda x: -x["peso"])
     return {

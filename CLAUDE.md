@@ -7,6 +7,7 @@ AGATA is a Flask + SQLite job-matching app that scores applicants mainly on astr
 ## Commands
 
 ```bash
+./instalar.sh                        # fresh machine: .venv + requirements + npm build + .env from .env.example
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python app.py              # dev server on http://localhost:5000 (debug=True)
 .venv/bin/python seed.py             # demo data; refuses if the DB has records
@@ -28,7 +29,7 @@ There is no test suite and no linter. To exercise backend logic, call modules di
 **Request flow for a new application** (`POST /api/vacantes/<id>/postulaciones` in `app.py`):
 `_datos_natales` validates birth data and calls `astro.calcular_carta` → `_guardar_cv` stores the file in `uploads/` and extracts its text (`evaluador.extraer_texto_cv`) → `_evaluar` runs `evaluador.evaluar` once without AI, passes that result to `oraculo.consultar` (Groq), then runs `evaluador.evaluar` again with the AI verdict → the result JSON, AI JSON, score and verdict are saved on the `candidatos` row.
 
-**Scoring (`evaluador.evaluar`)**: six components (`lider`, `empresa`, `elemento`, `conflicto`, `cv`, `ia`), each 0–100, weighted by the vacancy's `peso_<componente>` columns. A component that is `None` (company without a chart, no AI key, etc.) is dropped and its weight is spread over the rest. Thresholds are `UMBRAL_MATCH = 80` and `UMBRAL_DECISION = 60`. Adding a component means updating the `vacantes` schema plus `MIGRACIONES`, `PESOS` in `app.py`, the `componentes` dict, and the frontend.
+**Scoring (`evaluador.evaluar`)**: six components (`lider`, `empresa`, `elemento`, `conflicto`, `cv`, `ia`), each 0–100, weighted by the vacancy's `peso_<componente>` columns. A component that is `None` (company without a chart, no AI key, etc.) is dropped and its weight is spread over the rest. Since 1.2.0 the score never classifies or discards anyone; there are no thresholds. It ranks candidates within a vacancy. `LECTURAS` splits it into a professional reading (`cv`, `ia`) and an astral reading, and `destaca` lists each candidate's two strongest components. The only gate is the leader's `decision_lider`, and the old `candidatos.veredicto` column is unused. Adding a component means updating the `vacantes` schema plus `MIGRACIONES`, `PESOS` in `app.py`, the `componentes` dict, and the frontend.
 
 **Astrology (`astro.py`)**: hand-written ephemeris (Meeus + JPL Keplerian elements, no dependencies). A chart is a dict with `posiciones`, `elementos`, `modalidades`, etc. Derived fields (`conflicto`, `atributos`) are added by `completar_carta` and versioned with `VERSION_CARTA`. `sinastria()` is calibrated so two random charts average ≈65; changing aspect weights or orbs shifts every verdict. Latitude is limited to ±66 because the ascendant formula breaks down near the poles.
 

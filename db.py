@@ -96,7 +96,7 @@ CREATE TABLE IF NOT EXISTS candidatos (
     resultado TEXT,
     ia TEXT,
     puntaje REAL,
-    veredicto TEXT,
+    veredicto TEXT,  -- sin uso desde 1.2.0: el match ya no clasifica ni descarta
     decision_lider TEXT,
     nota_lider TEXT,
     creado TEXT DEFAULT CURRENT_TIMESTAMP

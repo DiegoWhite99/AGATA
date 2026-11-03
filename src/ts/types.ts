@@ -1,5 +1,17 @@
-export type Veredicto = "match" | "decision" | "descartado";
 export type Decision = "aprobado" | "rechazado" | null;
+
+/** El puntaje leído en dos partes: hoja de vida + IA, y las cartas. */
+export interface Lecturas {
+  profesional: number | null;
+  astral: number | null;
+}
+
+/** Uno de los dos componentes más fuertes del postulante. */
+export interface Destaca {
+  clave: keyof Componentes;
+  nombre: string;
+  puntaje: number;
+}
 
 export interface Ciudad {
   nombre: string;
@@ -142,9 +154,9 @@ export interface VacanteResumen extends Pesos {
   lider_cargo: string;
   elemento_afin: string | null;
   candidatos: number;
-  n_match: number | null;
-  n_decision: number | null;
-  n_descartado: number | null;
+  n_pendientes: number | null;
+  n_aprobados: number | null;
+  n_rechazados: number | null;
   n_habilidades: number;
   creado: string;
 }
@@ -163,15 +175,15 @@ export interface CandidatoFila {
   nombre: string;
   email: string;
   puntaje: number;
-  veredicto: Veredicto;
   decision_lider: Decision;
   creado: string;
   signo_sol: string | null;
-  componentes: Componentes | null;
+  lecturas: Lecturas | null;
+  destaca: Destaca[] | null;
 }
 
 export interface Vacante
-  extends Omit<VacanteResumen, "candidatos" | "n_match" | "n_decision" | "n_descartado" | "n_habilidades"> {
+  extends Omit<VacanteResumen, "candidatos" | "n_pendientes" | "n_aprobados" | "n_rechazados" | "n_habilidades"> {
   habilidades: Habilidad[];
   lider: Lider;
   empresa: { nombre: string; carta: Carta | null } | null;
@@ -316,8 +328,8 @@ export interface Sinastria {
 
 export interface Resultado {
   puntaje: number;
-  veredicto: Veredicto;
-  veredicto_texto: string;
+  lecturas: Lecturas;
+  destaca: Destaca[];
   componentes: Componentes;
   pesos: Record<keyof Componentes, number>;
   sinastria: { lider: Sinastria | null; empresa: Sinastria | null };
@@ -343,7 +355,6 @@ export interface Candidato extends DatosNatales {
   carta: Carta;
   resultado: Resultado;
   puntaje: number;
-  veredicto: Veredicto;
   decision_lider: Decision;
   nota_lider: string | null;
   creado: string;
@@ -354,6 +365,8 @@ export interface Informe {
   vacante: VacanteResumen;
   lider: Pick<Lider, "id" | "nombre" | "cargo" | "area" | "carta" | "cv_archivo">;
   empresa: Empresa | null;
+  /** Puesto del postulante en el ranking de su vacante. */
+  ranking: { posicion: number; total: number };
   ia: EstadoIA;
 }
 
@@ -361,9 +374,9 @@ export interface Panel {
   vacantes_abiertas: number;
   lideres: number;
   candidatos: number;
-  match: number;
-  decision: number;
-  descartado: number;
+  pendientes: number;
+  aprobados: number;
+  rechazados: number;
   recientes: (CandidatoFila & { cargo: string; vacante_id: number })[];
   vacantes: VacanteResumen[];
   empresa: Empresa | null;

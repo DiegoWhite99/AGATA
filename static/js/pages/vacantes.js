@@ -49,9 +49,9 @@ function tarjetaVacante(v) {
     <p class="texto-corto">${esc(v.descripcion)}</p>
     <div class="vacante-stats">
       <div><strong>${v.candidatos}</strong><span>postulantes</span></div>
-      <div class="c-match"><strong>${v.n_match ?? 0}</strong><span>match</span></div>
-      <div class="c-decision"><strong>${v.n_decision ?? 0}</strong><span>en decisión</span></div>
-      <div class="c-descartado"><strong>${v.n_descartado ?? 0}</strong><span>descartados</span></div>
+      <div class="c-pendiente"><strong>${v.n_pendientes ?? 0}</strong><span>por decidir</span></div>
+      <div class="c-aprobado"><strong>${v.n_aprobados ?? 0}</strong><span>aprobados</span></div>
+      <div class="c-rechazado"><strong>${v.n_rechazados ?? 0}</strong><span>rechazados</span></div>
     </div>
     <p class="meta">${v.n_habilidades} habilidades · Líder ✶ ${v.peso_lider} / Empresa ✶ ${v.peso_empresa} / Elemento ${v.peso_elemento} / Conflictos ${v.peso_conflicto} / CV ${v.peso_cv} / IA ${v.peso_ia}
       ${v.elemento_afin ? ` · Elemento afín <b style="color:${COLOR_ELEMENTO[v.elemento_afin]}">${esc(v.elemento_afin)}</b>` : ""}

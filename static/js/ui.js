@@ -12,17 +12,9 @@ export function esc(valor) {
 export function html(strings, ...values) {
     return strings.reduce((acc, s, i) => acc + s + (i < values.length ? String(values[i] ?? "") : ""), "");
 }
-const VEREDICTO_TXT = {
-    match: "Match",
-    decision: "En decisión",
-    descartado: "Descartado",
-};
-export function badgeVeredicto(v) {
-    return `<span class="badge badge-${v}">${VEREDICTO_TXT[v]}</span>`;
-}
 export function badgeDecision(d) {
     if (!d)
-        return "";
+        return `<span class="badge badge-pendiente">Por decidir</span>`;
     return d === "aprobado"
         ? `<span class="badge badge-aprobado">✔ Aprobado por líder</span>`
         : `<span class="badge badge-rechazado">✖ Rechazado por líder</span>`;
@@ -31,7 +23,7 @@ export function colorPuntaje(p) {
     return p >= 80 ? "var(--match)" : p >= 60 ? "var(--decision)" : "var(--descartado)";
 }
 /** Anillo de progreso SVG con el puntaje en el centro. */
-export function anillo(puntaje, tam = 140, grosor = 12) {
+export function anillo(puntaje, tam = 140, grosor = 12, color = colorPuntaje(puntaje)) {
     const r = (tam - grosor) / 2;
     const c = 2 * Math.PI * r;
     const off = c * (1 - Math.min(100, Math.max(0, puntaje)) / 100);
@@ -39,7 +31,7 @@ export function anillo(puntaje, tam = 140, grosor = 12) {
     <svg class="anillo" viewBox="0 0 ${tam} ${tam}" width="${tam}" height="${tam}" role="img"
          aria-label="Puntaje ${puntaje.toFixed(1)} por ciento">
       <circle cx="${tam / 2}" cy="${tam / 2}" r="${r}" fill="none" stroke="var(--track)" stroke-width="${grosor}"/>
-      <circle cx="${tam / 2}" cy="${tam / 2}" r="${r}" fill="none" stroke="${colorPuntaje(puntaje)}"
+      <circle cx="${tam / 2}" cy="${tam / 2}" r="${r}" fill="none" stroke="${color}"
               stroke-width="${grosor}" stroke-linecap="round" stroke-dasharray="${c}" stroke-dashoffset="${off}"
               transform="rotate(-90 ${tam / 2} ${tam / 2})"/>
       <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central" class="anillo-num">

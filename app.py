@@ -174,10 +174,10 @@ def api_ciudades():
 @app.get("/api/panel")
 def api_panel():
     con = get_db()
-    conteo = {r["veredicto"]: r["n"] for r in con.execute(
-        "SELECT veredicto, COUNT(*) n FROM candidatos GROUP BY veredicto")}
+    conteo = {r["decision_lider"]: r["n"] for r in con.execute(
+        "SELECT decision_lider, COUNT(*) n FROM candidatos GROUP BY decision_lider")}
     recientes = con.execute("""
-        SELECT c.id, c.nombre, c.puntaje, c.veredicto, c.decision_lider, c.creado,
+        SELECT c.id, c.nombre, c.puntaje, c.decision_lider, c.creado,
                v.cargo, v.id AS vacante_id
         FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id
         ORDER BY c.id DESC LIMIT 8""").fetchall()
@@ -186,9 +186,9 @@ def api_panel():
             "SELECT COUNT(*) FROM vacantes WHERE estado='abierta'").fetchone()[0],
         "lideres": con.execute("SELECT COUNT(*) FROM lideres").fetchone()[0],
         "candidatos": sum(conteo.values()),
-        "match": conteo.get("match", 0),
-        "decision": conteo.get("decision", 0),
-        "descartado": conteo.get("descartado", 0),
+        "pendientes": conteo.get(None, 0),
+        "aprobados": conteo.get("aprobado", 0),
+        "rechazados": conteo.get("rechazado", 0),
         "recientes": rows_to_list(recientes),
         "vacantes": _lista_vacantes(con, solo_abiertas=True),
         "empresa": _empresa(con),
@@ -361,9 +361,9 @@ def _lista_vacantes(con, solo_abiertas: bool = False) -> list[dict]:
     rows = con.execute(f"""
         SELECT v.*, l.nombre AS lider_nombre, l.cargo AS lider_cargo,
                COUNT(c.id) AS candidatos,
-               SUM(c.veredicto='match') AS n_match,
-               SUM(c.veredicto='decision') AS n_decision,
-               SUM(c.veredicto='descartado') AS n_descartado,
+               SUM(c.id IS NOT NULL AND c.decision_lider IS NULL) AS n_pendientes,
+               SUM(c.decision_lider='aprobado') AS n_aprobados,
+               SUM(c.decision_lider='rechazado') AS n_rechazados,
                (SELECT COUNT(*) FROM habilidades h WHERE h.vacante_id = v.id) AS n_habilidades
         FROM vacantes v JOIN lideres l ON l.id = v.lider_id
         LEFT JOIN candidatos c ON c.vacante_id = v.id
@@ -464,12 +464,14 @@ def api_vacante(vid: int):
     vac["lider"] = _lider_publico(row_to_dict(con.execute("SELECT * FROM lideres WHERE id=?",
                                                           (vac["lider_id"],)).fetchone()))
     vac["candidatos"] = rows_to_list(con.execute("""
-        SELECT id, nombre, email, puntaje, veredicto, decision_lider, creado,
-               json_extract(resultado, '$.componentes') AS componentes,
+        SELECT id, nombre, email, puntaje, decision_lider, creado,
+               json_extract(resultado, '$.lecturas') AS lecturas,
+               json_extract(resultado, '$.destaca') AS destaca,
                json_extract(carta, '$.posiciones.sol.signo') AS signo_sol
         FROM candidatos WHERE vacante_id=? ORDER BY puntaje DESC""", (vid,)))
     for c in vac["candidatos"]:
-        c["componentes"] = json.loads(c["componentes"]) if c["componentes"] else None
+        for col in ("lecturas", "destaca"):
+            c[col] = json.loads(c[col]) if c[col] else None
     empresa = _empresa(con)
     vac["empresa"] = {"nombre": empresa["nombre"], "carta": empresa["carta"]} if empresa else None
     perfil = perfiles.obtener(con, vac["perfil_id"], vac["perfil_archivo"])
@@ -660,10 +662,10 @@ def _evaluar(con, vac: dict, cand: dict, consultar_ia: bool = False) -> dict:
 
 
 def _guardar_resultado(con, cid: int, cand: dict, res: dict) -> None:
-    con.execute("UPDATE candidatos SET resultado=?, ia=?, puntaje=?, veredicto=? WHERE id=?",
+    con.execute("UPDATE candidatos SET resultado=?, ia=?, puntaje=? WHERE id=?",
                 (json.dumps(res, ensure_ascii=False),
                  json.dumps(cand.get("ia"), ensure_ascii=False) if cand.get("ia") else None,
-                 res["puntaje"], res["veredicto"], cid))
+                 res["puntaje"], cid))
 
 
 def _reevaluar_vacante(con, vid: int) -> None:
@@ -703,15 +705,13 @@ def api_postular(vid: int):
     cand.update(natales)
     cand.update({"cv_archivo": nombre_archivo, "cv_texto": cv_texto})
     res = _evaluar(con, vac, cand, consultar_ia=True)
-    fila = {**cand, "vacante_id": vid, "resultado": res, "puntaje": res["puntaje"],
-            "veredicto": res["veredicto"]}
+    fila = {**cand, "vacante_id": vid, "resultado": res, "puntaje": res["puntaje"]}
     for col in ("carta", "resultado", "ia"):
         fila[col] = json.dumps(fila[col], ensure_ascii=False) if fila.get(col) else None
     cur = con.execute(f"INSERT INTO candidatos ({', '.join(fila)}) "
                       f"VALUES ({', '.join('?' * len(fila))})", tuple(fila.values()))
     con.commit()
-    return jsonify({"id": cur.lastrowid, "puntaje": res["puntaje"],
-                    "veredicto": res["veredicto"]}), 201
+    return jsonify({"id": cur.lastrowid, "puntaje": res["puntaje"]}), 201
 
 
 @app.get("/api/candidatos/<int:cid>")
@@ -726,7 +726,12 @@ def api_candidato(cid: int):
     lider = row_to_dict(con.execute(
         "SELECT id, nombre, cargo, area, carta, cv_archivo FROM lideres WHERE id=?",
         (vac["lider_id"],)).fetchone())
+    # Puesto en el ranking de la vacante (los empates comparten puesto).
+    posicion, total = con.execute(
+        "SELECT SUM(puntaje > ?) + 1, COUNT(*) FROM candidatos WHERE vacante_id=?",
+        (cand["puntaje"], cand["vacante_id"])).fetchone()
     return jsonify({"candidato": cand, "vacante": vac, "lider": lider, "empresa": _empresa(con),
+                    "ranking": {"posicion": posicion, "total": total},
                     "ia": {"activa": oraculo.activo(), "modelo": oraculo.modelo()}})
 
 
@@ -744,7 +749,7 @@ def api_reconsultar(cid: int):
     con.commit()
     if cand["ia"] and cand["ia"].get("error"):
         return jsonify({"error": cand["ia"]["error"]}), 502
-    return jsonify({"puntaje": res["puntaje"], "veredicto": res["veredicto"]})
+    return jsonify({"puntaje": res["puntaje"]})
 
 
 @app.patch("/api/candidatos/<int:cid>/decision")
@@ -789,11 +794,13 @@ def preparar_db() -> None:
                 con.execute(f"UPDATE {tabla} SET carta=? WHERE id=?",
                             (json.dumps(astro.completar_carta(fila["carta"]), ensure_ascii=False), fila["id"]))
                 cartas_nuevas += 1
+    # 1.2.0: el match ya no clasifica ni descarta; la columna veredicto queda sin uso.
+    con.execute("UPDATE candidatos SET veredicto = NULL WHERE veredicto IS NOT NULL")
     con.commit()
     # Si cambiaron las cartas o el modelo, se recalculan los resultados (sin volver a llamar a la IA).
     viejos = {r["vacante_id"] for r in con.execute(
         "SELECT vacante_id FROM candidatos WHERE resultado NOT LIKE '%\"conflicto\": {%'"
-        + ("" if not cartas_nuevas else " OR 1"))}
+        " OR resultado NOT LIKE '%\"lecturas\"%'" + ("" if not cartas_nuevas else " OR 1"))}
     if viejos:
         with app.app_context():
             for vid in viejos:

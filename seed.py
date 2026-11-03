@@ -148,11 +148,11 @@ def sembrar(con) -> None:
         res = evaluador.evaluar(vac, habilidades, c["cv"], carta, carta_lider, carta_empresa, nombres)
         con.execute("""
             INSERT INTO candidatos (vacante_id, nombre, email, telefono, fecha_nac, hora_nac, ciudad,
-                lat, lon, utc, cv_archivo, cv_texto, carta, resultado, puntaje, veredicto)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                lat, lon, utc, cv_archivo, cv_texto, carta, resultado, puntaje)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (vid, c["nombre"], c["email"], c["telefono"], c["fecha_nac"], c["hora_nac"], c["ciudad"],
              c["lat"], c["lon"], c["utc"], archivo, c["cv"], json.dumps(carta, ensure_ascii=False),
-             json.dumps(res, ensure_ascii=False), res["puntaje"], res["veredicto"]))
+             json.dumps(res, ensure_ascii=False), res["puntaje"]))
     con.commit()
 
 
@@ -172,6 +172,6 @@ if __name__ == "__main__":
     conexion = connect()
     init_db(conexion)
     sembrar(conexion)
-    for fila in conexion.execute("SELECT nombre, puntaje, veredicto FROM candidatos"):
-        print(f"{fila['nombre']:<20} {fila['puntaje']:>5}  {fila['veredicto']}")
+    for fila in conexion.execute("SELECT nombre, puntaje FROM candidatos ORDER BY puntaje DESC"):
+        print(f"{fila['nombre']:<20} {fila['puntaje']:>5}")
     conexion.close()

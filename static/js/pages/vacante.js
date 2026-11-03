@@ -2,33 +2,36 @@ import { api } from "../api.js";
 import { COLOR_ELEMENTO, tarjetaCarta } from "../astro-ui.js";
 import { avisoCopia, expectativasCargo, fichaPerfil, nivelRol } from "../perfil-ui.js";
 import { radar } from "../radar.js";
-import { $, $$, badgeDecision, badgeVeredicto, barra, colorPuntaje, esc, fecha, toast, vacio } from "../ui.js";
+import { $, $$, badgeDecision, barra, colorPuntaje, esc, fecha, toast, vacio } from "../ui.js";
 const raiz = $("#vacante");
 const id = Number(raiz.dataset.id);
 let vac;
 let filtro = "todos";
+const estadoDe = (c) => c.decision_lider ?? "pendiente";
 const celda = (v) => v == null ? `<td class="num meta">—</td>` : `<td class="num" style="color:${colorPuntaje(v)}">${v.toFixed(0)}</td>`;
 const puntos = (n) => `<span class="nivel" aria-label="Nivel ${n} de 5">${[1, 2, 3, 4, 5].map((k) => `<i class="${k <= n ? "on" : ""}"></i>`).join("")}</span>`;
-function filaCandidato(c, i) {
-    const comp = c.componentes;
+function filaCandidato(c) {
+    // El puesto es el del ranking completo, aunque haya un filtro activo.
     return `<tr>
-    <td class="num">${i + 1}</td>
+    <td class="num">${vac.candidatos.indexOf(c) + 1}</td>
     <td><a href="/candidatos/${c.id}" class="lista-titulo">${esc(c.nombre)}</a><span class="meta">${esc(c.email)} · ${fecha(c.creado)}</span></td>
     <td>${c.signo_sol ? `☉ ${esc(c.signo_sol)}` : "—"}</td>
-    ${celda(comp?.lider)}${celda(comp?.empresa)}${celda(comp?.elemento)}${celda(comp?.conflicto)}${celda(comp?.cv)}${celda(comp?.ia)}
-    <td class="celda-puntaje"><strong style="color:${colorPuntaje(c.puntaje)}">${c.puntaje.toFixed(1)}%</strong>${barra(c.puntaje)}</td>
-    <td>${badgeVeredicto(c.veredicto)}${badgeDecision(c.decision_lider)}</td>
+    ${celda(c.lecturas?.profesional)}${celda(c.lecturas?.astral)}
+    <td class="celda-puntaje"><strong class="puntaje-neutro">${c.puntaje.toFixed(1)}%</strong>${barra(c.puntaje, "var(--gold)")}</td>
+    <td>${(c.destaca ?? []).map((d) => `<span class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</span>`).join("") || "—"}</td>
+    <td>${badgeDecision(c.decision_lider)}</td>
     <td><a class="btn btn-sec btn-sm" href="/candidatos/${c.id}">Informe</a></td>
   </tr>`;
 }
 function pintarCandidatos() {
-    const lista = vac.candidatos.filter((c) => filtro === "todos" || c.veredicto === filtro);
+    const lista = vac.candidatos.filter((c) => filtro === "todos" || estadoDe(c) === filtro);
     $("#tabla-candidatos").innerHTML = lista.length
         ? `<div class="tabla-scroll"><table class="tabla">
-        <thead><tr><th class="num">#</th><th>Postulante</th><th>Signo</th><th class="num" title="Sinastría con el líder">Líder ✶</th>
-          <th class="num" title="Sinastría con la empresa">Empresa ✶</th><th class="num">Elemento</th><th class="num" title="Manejo de conflictos con el líder">Conflictos</th><th class="num">CV</th>
-          <th class="num">IA</th><th>Puntaje</th><th>Veredicto</th><th><span class="sr">Acciones</span></th></tr></thead>
-        <tbody>${lista.map(filaCandidato).join("")}</tbody></table></div>`
+        <thead><tr><th class="num">#</th><th>Postulante</th><th>Signo</th>
+          <th class="num" title="Hoja de vida + ajuste con el líder según la IA">Perfil profesional</th>
+          <th class="num" title="Sinastría con el líder y la empresa, elemento afín y manejo de conflictos">Afinidad astral</th>
+          <th>Puntaje</th><th>Destaca en</th><th>Decisión del líder</th><th><span class="sr">Acciones</span></th></tr></thead>
+        <tbody>${lista.map((c) => filaCandidato(c)).join("")}</tbody></table></div>`
         : vacio("☌", "Sin postulantes en esta categoría", "Comparte el link de postulación para recibir candidatos.");
 }
 function seccionPerfil() {
@@ -55,7 +58,7 @@ function seccionPerfil() {
 }
 function pintar() {
     const l = vac.lider;
-    const cuenta = (v) => vac.candidatos.filter((c) => c.veredicto === v).length;
+    const cuenta = (e) => vac.candidatos.filter((c) => estadoDe(c) === e).length;
     document.title = `${vac.cargo} · AGATA`;
     raiz.innerHTML = `
     <a class="migas" href="/vacantes">← Cargos y vacantes</a>
@@ -130,13 +133,14 @@ function pintar() {
     <section class="tarjeta">
       <header class="tarjeta-cab">
         <h2>Ranking de postulantes</h2>
-        <div class="filtros" role="tablist" aria-label="Filtrar por veredicto">
+        <div class="filtros" role="tablist" aria-label="Filtrar por decisión del líder">
           <button class="filtro" role="tab" data-f="todos" aria-selected="true">Todos (${vac.candidatos.length})</button>
-          <button class="filtro f-match" role="tab" data-f="match" aria-selected="false">Match (${cuenta("match")})</button>
-          <button class="filtro f-decision" role="tab" data-f="decision" aria-selected="false">En decisión (${cuenta("decision")})</button>
-          <button class="filtro f-descartado" role="tab" data-f="descartado" aria-selected="false">Descartados (${cuenta("descartado")})</button>
+          <button class="filtro f-pendiente" role="tab" data-f="pendiente" aria-selected="false">Por decidir (${cuenta("pendiente")})</button>
+          <button class="filtro f-aprobado" role="tab" data-f="aprobado" aria-selected="false">Aprobados (${cuenta("aprobado")})</button>
+          <button class="filtro f-rechazado" role="tab" data-f="rechazado" aria-selected="false">Rechazados (${cuenta("rechazado")})</button>
         </div>
       </header>
+      <p class="meta">Nadie queda descartado: el puntaje ordena a los postulantes y el líder decide quién avanza.</p>
       <div id="tabla-candidatos"></div>
     </section>`;
     pintarCandidatos();

@@ -2,28 +2,40 @@
 
 Plataforma web de match laboral centrada en la **carta astral**. Cruza la carta del postulante con la del
 **líder** y la de la **empresa** (sinastría), lee la hoja de vida con un **agente de IA (Groq)** y entrega un
-informe con puntaje:
+informe con puntaje.
 
-| Puntaje | Veredicto |
-|---|---|
-| ≥ 80 % | **Match**: pasa a entrevista con el líder |
-| 60 – 79 % | **En decisión**: el líder aprueba o rechaza |
-| < 60 % | **Descartado** |
+**Nadie queda descartado.** El puntaje no clasifica: ordena a los postulantes de cada vacante (ranking) y se
+lee en dos partes, **perfil profesional** (hoja de vida + IA) y **afinidad astral** (líder, empresa, elemento y
+conflictos). Cada postulante muestra en qué **destaca**, aunque su puntaje total sea bajo, y lo que conviene
+explorar en la entrevista. La única decisión es la del **líder**: aprobar o rechazar.
 
 ## Ejecutar
+
+En una máquina nueva, después de clonar el repositorio:
+
+```bash
+./instalar.sh                    # crea .venv, instala las librerías, compila el frontend y crea .env
+.venv/bin/python app.py          # http://localhost:5000
+```
+
+O paso a paso:
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python app.py          # http://localhost:5000
+cp .env.example .env             # opcional: la clave de Groq para la IA
+.venv/bin/python app.py
 ```
+
+En Ubuntu, si `python3 -m venv` falla, instala antes `python3-venv`. La carpeta `perfiles/` no viene en el
+repositorio (los perfiles de cargo traen datos de personas): copia ahí los archivos o súbelos desde **Perfiles**.
 
 Para cargar datos de demostración en una base vacía: `.venv/bin/python seed.py`. Si la base ya tiene
 registros, el script se niega a borrarlos (solo lo hace con `--forzar`).
 
 ### Agente de IA (Groq)
 
-La clave va en el archivo `.env` (no se sube a git):
+La clave va en el archivo `.env` (no se sube a git; parte de `.env.example`):
 
 ```
 GROQ_API_KEY=gsk_...
@@ -66,8 +78,9 @@ npm run build      # o: npm run watch
 5. **Postulación** (`/postular/<id>`): muestra los requisitos del perfil (formación, experiencia y
    conocimientos) y sigue con: datos → registro de los astros → **lo que dicta su carta** → hoja de vida → envío.
    Sin tests ni preguntas: la carta astral es la regla.
-6. **Informe**: veredicto, las tres cartas, sinastría (rejilla de aspectos, radar por astro y lecturas),
-   manejo de conflictos, lo que dictan las tres cartas, dictamen del oráculo IA, hoja de vida y decisión del líder.
+6. **Informe**: puesto en el ranking de la vacante, perfil profesional y afinidad astral, en qué destaca, las tres
+   cartas, sinastría (rejilla de aspectos, radar por astro y lecturas), manejo de conflictos, lo que dictan las tres
+   cartas, dictamen del oráculo IA, hoja de vida (puntos a favor y lo que conviene explorar) y decisión del líder.
 
 **Lo que dicta la carta**: cada carta (postulante, líder y empresa) fija sus reglas: elemento dominante,
 modalidad dominante y estilo ante el conflicto, más un rasgo por astro, por ejemplo "Comunicación: precisa,
@@ -91,7 +104,8 @@ y un consejo para cada uno.
 | Ajuste con el líder (IA) | 10 | El oráculo compara el perfil con lo que espera el líder |
 
 Lo astral pesa cerca del 73 % por defecto; cada cargo puede cambiar los pesos. Si falta un componente (por ejemplo, la
-empresa aún no tiene carta), queda fuera y los demás se reparten su peso.
+empresa aún no tiene carta), queda fuera y los demás se reparten su peso. El puntaje total sirve para ordenar; el
+perfil profesional y la afinidad astral son el promedio ponderado de sus componentes.
 
 **Sinastría**: trígonos y sextiles suman armonía; cuadraturas, oposiciones y quincuncios suman tensión; la
 conjunción depende de los astros. Cada par se pondera por la importancia del astro en el trabajo (Sol, Luna,

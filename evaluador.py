@@ -7,13 +7,28 @@ from pathlib import Path
 
 import astro
 
-UMBRAL_MATCH = 80
-UMBRAL_DECISION = 60
+NOMBRES_COMPONENTE = {
+    "lider": "Sinastría con el líder",
+    "empresa": "Sinastría con la empresa",
+    "elemento": "Elemento afín al cargo",
+    "conflicto": "Manejo de conflictos",
+    "cv": "Hoja de vida",
+    "ia": "Ajuste con el líder (IA)",
+}
 
-VEREDICTOS = {
-    "match": "Match",
-    "decision": "En decisión",
-    "descartado": "Descartado",
+# El puntaje no clasifica ni descarta: ordena a los postulantes y se lee en dos partes.
+LECTURAS = {
+    "profesional": ("cv", "ia"),
+    "astral": ("lider", "empresa", "elemento", "conflicto"),
+}
+
+_FRASE_COMPONENTE = {
+    "lider": "la sinastría con {lider}",
+    "empresa": "la sinastría con {empresa}",
+    "elemento": "el elemento afín al cargo",
+    "conflicto": "su manejo de conflictos",
+    "cv": "su hoja de vida",
+    "ia": "su ajuste con lo que espera el líder",
 }
 
 
@@ -71,14 +86,6 @@ def nivel_educativo(texto_norm: str) -> str | None:
     return None
 
 
-def clasificar(puntaje: float) -> str:
-    if puntaje >= UMBRAL_MATCH:
-        return "match"
-    if puntaje >= UMBRAL_DECISION:
-        return "decision"
-    return "descartado"
-
-
 def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: dict,
             carta_lider: dict | None, carta_empresa: dict | None, nombres: dict,
             ia: dict | None = None) -> dict:
@@ -88,6 +95,7 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
     cargo, manejo de conflictos (con el líder, o con la empresa si no hay carta del líder), hoja de
     vida y ajuste con el líder según la IA. Los que no tienen datos (por ejemplo,
     la empresa sin carta o la IA sin clave) quedan fuera y los pesos se reparten entre el resto.
+    Nadie queda descartado: el puntaje ordena a los postulantes y la decisión es del líder.
     `nombres` trae {"candidato", "lider", "empresa"} para redactar las lecturas.
     """
     texto = normalizar(cv_texto or "")
@@ -139,15 +147,17 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
     pesos = {k: (vacante.get(f"peso_{k}", 0) if v is not None else 0) for k, v in componentes.items()}
     total_pesos = sum(pesos.values()) or 1
     final = sum(pesos[k] * (v or 0) for k, v in componentes.items()) / total_pesos
-    veredicto = clasificar(final)
+    lecturas = {nombre: _promedio(componentes, pesos, claves) for nombre, claves in LECTURAS.items()}
+    # Lo más fuerte de cada postulante, sea cual sea su puntaje total.
+    destaca = [k for k in sorted(componentes, key=lambda k: -(componentes[k] or 0)) if pesos[k]][:2]
 
     fortalezas = [h["nombre"] for h in sorted(detalle, key=lambda h: -h["cv"]) if h["estado"] == "cumple"]
     brechas = [h["nombre"] for h in sorted(detalle, key=lambda h: h["cobertura"]) if h["estado"] == "brecha"]
 
     return {
         "puntaje": round(final, 1),
-        "veredicto": veredicto,
-        "veredicto_texto": VEREDICTOS[veredicto],
+        "lecturas": lecturas,
+        "destaca": [{"clave": k, "nombre": NOMBRES_COMPONENTE[k], "puntaje": componentes[k]} for k in destaca],
         "componentes": componentes,
         "pesos": pesos,
         "sinastria": {"lider": sin_lider, "empresa": sin_empresa},
@@ -160,29 +170,32 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
         "experiencia_anios": anios_experiencia(texto),
         "nivel_educativo": nivel_educativo(texto),
         "cv_palabras": len(texto.split()),
-        "recomendacion": _recomendacion(veredicto, final, componentes, nombres),
+        "recomendacion": _recomendacion(componentes, lecturas, destaca, brechas, nombres),
     }
 
 
-def _nivel(valor: float) -> str:
-    return "muy armónica" if valor >= 80 else "favorable" if valor >= 60 else "con tensiones"
+def _promedio(componentes: dict, pesos: dict, claves: tuple[str, ...]) -> float | None:
+    """Promedio ponderado de un grupo de componentes; None si ninguno tiene datos."""
+    total = sum(pesos[k] for k in claves)
+    if not total:
+        return None
+    return round(sum(pesos[k] * componentes[k] for k in claves if pesos[k]) / total, 1)
 
 
-def _recomendacion(veredicto: str, final: float, comp: dict, nombres: dict) -> str:
-    if veredicto == "match":
-        partes = [f"Las cartas y el perfil cubren el {final:.0f}% de lo que pide el cargo: "
-                  "se recomienda avanzar a entrevista con el líder."]
-    elif veredicto == "decision":
-        partes = [f"El match es del {final:.0f}%. Queda en decisión del líder: conviene una "
-                  "entrevista para validar los puntos de tensión."]
-    else:
-        partes = [f"El match es del {final:.0f}%, por debajo del 60% mínimo: se descarta para esta vacante."]
-    if comp["lider"] is not None:
-        partes.append(f"La sinastría con {nombres['lider']} es {_nivel(comp['lider'])} ({comp['lider']:.0f}%).")
-    if comp["empresa"] is not None:
-        partes.append(f"Con la carta de {nombres['empresa']} es {_nivel(comp['empresa'])} ({comp['empresa']:.0f}%).")
-    if comp["conflicto"] is not None:
-        partes.append(f"Su forma de manejar conflictos encaja en un {comp['conflicto']:.0f}%.")
-    if comp["cv"] is not None:
-        partes.append(f"La hoja de vida cubre el {comp['cv']:.0f}% de las habilidades.")
+def _y(items: list[str]) -> str:
+    return items[0] if len(items) == 1 else ", ".join(items[:-1]) + " y " + items[-1]
+
+
+def _recomendacion(comp: dict, lecturas: dict, destaca: list[str], brechas: list[str], nombres: dict) -> str:
+    """Lo más fuerte del postulante y lo que conviene explorar, sin descartar a nadie."""
+    partes = []
+    if destaca:
+        fuertes = [f"{_FRASE_COMPONENTE[k].format(**nombres)} ({comp[k]:.0f}%)" for k in destaca]
+        partes.append(f"Lo más fuerte de {nombres['candidato']} para este cargo es {_y(fuertes)}.")
+    if lecturas["profesional"] is not None and lecturas["astral"] is not None:
+        partes.append(f"Perfil profesional: {lecturas['profesional']:.0f}%; "
+                      f"afinidad astral: {lecturas['astral']:.0f}%.")
+    if brechas:
+        partes.append(f"En la entrevista conviene explorar {_y(brechas[:3])}.")
+    partes.append("La decisión de avanzar es del líder.")
     return " ".join(partes)

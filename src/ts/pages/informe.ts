@@ -5,7 +5,7 @@ import {
 } from "../astro-ui.js";
 import { radar } from "../radar.js";
 import {
-  $, $$, anillo, badgeDecision, badgeVeredicto, barra, colorPuntaje, confirmar, esc, fecha, laurel, toast, vacio,
+  $, $$, anillo, badgeDecision, barra, colorPuntaje, confirmar, esc, fecha, laurel, toast, vacio,
 } from "../ui.js";
 import type { AspectoConflicto, Carta, Decision, DictamenIA, Informe, ResultadoIA, Sinastria } from "../types.js";
 
@@ -16,12 +16,6 @@ let pestana: "lider" | "empresa" = "lider";
 let dicta: "postulante" | "lider" | "empresa" = "postulante";
 
 const ESTADO_TXT = { cumple: "Cumple", parcial: "Parcial", brecha: "Brecha" };
-
-const EXPLICACION = {
-  match: "Las cartas y el perfil cubren 80% o más: el oráculo lo corona y pasa directo a entrevista con el líder.",
-  decision: "El match está entre 60% y 79%. El líder decide si avanza.",
-  descartado: "El match está por debajo del 60%. Se descarta para esta vacante.",
-};
 
 const COMPONENTES: { clave: keyof Informe["candidato"]["resultado"]["componentes"]; nombre: string }[] = [
   { clave: "lider", nombre: "Sinastría con el líder" },
@@ -35,11 +29,10 @@ const COMPONENTES: { clave: keyof Informe["candidato"]["resultado"]["componentes
 const dictamenOk = (ia: ResultadoIA | undefined): ia is DictamenIA => !!ia && !("error" in ia);
 const primerNombre = (n: string) => n.split(" ")[0].charAt(0).toUpperCase() + n.split(" ")[0].slice(1).toLowerCase();
 
-function escala(p: number): string {
-  return `<div class="escala" aria-hidden="true">
-      <div class="escala-tramos"><span class="t-desc"></span><span class="t-dec"></span><span class="t-match"></span></div>
-      <i class="escala-marca" style="left:${Math.min(100, p)}%"></i>
-      <div class="escala-num"><span>0</span><span style="left:60%">60</span><span style="left:80%">80</span><span style="left:100%">100</span></div>
+function lectura(nombre: string, detalle: string, valor: number | null): string {
+  return `<div class="lectura">
+      <strong>${valor == null ? "—" : `${valor.toFixed(0)}%`}</strong>
+      <span>${nombre}</span><small class="meta">${detalle}</small>
     </div>`;
 }
 
@@ -281,13 +274,18 @@ function pintar(): void {
       </div>
     </header>
 
-    <section class="tarjeta veredicto veredicto-${r.veredicto}">
-      <div class="corona">${laurel(230)}${anillo(r.puntaje, 150, 10)}</div>
+    <section class="tarjeta veredicto">
+      <div class="corona">${laurel(230)}${anillo(r.puntaje, 150, 10, "var(--gold)")}</div>
       <div class="veredicto-texto">
-        <p class="eyebrow">Veredicto del oráculo</p>
-        <h2>${badgeVeredicto(r.veredicto)} ${badgeDecision(c.decision_lider)}</h2>
-        <p>${EXPLICACION[r.veredicto]}</p>
-        ${escala(r.puntaje)}
+        <p class="eyebrow">Lectura del oráculo · puesto ${datos.ranking.posicion} de ${datos.ranking.total} en esta vacante</p>
+        <h2>${badgeDecision(c.decision_lider)}</h2>
+        <p>Nadie queda descartado: el puntaje ordena a los postulantes y el líder decide quién avanza.</p>
+        <div class="lecturas">
+          ${lectura("Perfil profesional", "Hoja de vida + IA", r.lecturas.profesional)}
+          ${lectura("Afinidad astral", "Líder, empresa, elemento y conflictos", r.lecturas.astral)}
+        </div>
+        ${r.destaca.length ? `<h3 class="subtitulo">Destaca en</h3>
+          <ul class="chips">${r.destaca.map((d) => `<li class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</li>`).join("")}</ul>` : ""}
       </div>
       <div class="componentes">
         ${COMPONENTES.map((k) => componente(k.nombre, r.componentes[k.clave] ?? null, r.pesos[k.clave] ?? 0, totalPesos)).join("")}
@@ -336,8 +334,8 @@ function pintar(): void {
         <h2>Recomendación</h2>
         <p class="parrafo">${esc(r.recomendacion)}</p>
         <div class="grid-2 mini-grid">
-          <div><h3 class="subtitulo">Fortalezas</h3>${r.fortalezas.length ? `<ul class="chips">${r.fortalezas.map((f) => `<li class="chip chip-ok">${esc(f)}</li>`).join("")}</ul>` : `<p class="meta">—</p>`}</div>
-          <div><h3 class="subtitulo">Brechas</h3>${r.brechas.length ? `<ul class="chips">${r.brechas.map((f) => `<li class="chip chip-mal">${esc(f)}</li>`).join("")}</ul>` : `<p class="meta">Sin brechas críticas</p>`}</div>
+          <div><h3 class="subtitulo">Puntos a favor</h3>${r.fortalezas.length ? `<ul class="chips">${r.fortalezas.map((f) => `<li class="chip chip-ok">${esc(f)}</li>`).join("")}</ul>` : `<p class="meta">En las habilidades aún no hay evidencia fuerte; mira «Destaca en», arriba.</p>`}</div>
+          <div><h3 class="subtitulo">Para explorar en la entrevista</h3>${r.brechas.length ? `<ul class="chips">${r.brechas.map((f) => `<li class="chip">${esc(f)}</li>`).join("")}</ul>` : `<p class="meta">Nada pendiente en las habilidades del cargo</p>`}</div>
         </div>
         <div class="decision no-print" id="decision">
           <h3 class="subtitulo">Decisión del líder</h3>

@@ -39,6 +39,8 @@ Reglas:
 - "ajuste_lider" (0-100) mide qué tanto el perfil responde a lo que se espera del nuevo integrante en ESTE cargo,
   a su estilo de liderazgo y a las necesidades del equipo descritas.
 - No uses edad, género, origen ni datos personales para juzgar.
+- No descartes a nadie ni des un veredicto de aprobación o rechazo: esa decisión es del líder. En
+  "recomendacion" resalta lo que el postulante aporta y lo que conviene explorar en la entrevista.
 - Las lecturas de sinastría se basan en los aspectos que te entregan (trígonos y sextiles armonizan;
   cuadraturas y oposiciones tensan). Tradúcelas a la vida laboral: comunicación, ritmo, liderazgo,
   manejo de conflictos y encaje con la cultura. No inventes aspectos que no estén en los datos.
