@@ -5,7 +5,7 @@ import {
 } from "../astro-ui.js";
 import { radar } from "../radar.js";
 import {
-  $, $$, anillo, badgeDecision, barra, colorPuntaje, confirmar, esc, fecha, laurel, mostrarErrores, toast, vacio,
+  $, $$, anillo, badgeDecision, barra, colorPuntaje, confirmar, esAdmin, esc, fecha, laurel, mostrarErrores, toast, vacio,
 } from "../ui.js";
 import type {
   AspectoConflicto, CampoEnlace, Carta, Decision, DictamenIA, EnlaceBase, EnlaceGithub, EnlacePagina, EnlaceRepositorio,
@@ -525,7 +525,7 @@ function pintar(): void {
             <button class="btn btn-ok btn-sm" data-decision="aprobado">✓ Aprobar</button>
             <button class="btn btn-peligro btn-sm" data-decision="rechazado">✕ Rechazar</button>
             ${c.decision_lider ? `<button class="btn btn-sec btn-sm" data-decision="">Quitar decisión</button>` : ""}
-            <button class="btn btn-fantasma btn-sm" id="btn-borrar">Eliminar postulación</button>
+            ${esAdmin ? `<button class="btn btn-fantasma btn-sm" id="btn-borrar">Eliminar postulación</button>` : ""}
           </div>
         </div>
         ${c.nota_lider ? `<p class="nota solo-print">Nota del líder: ${esc(c.nota_lider)}</p>` : ""}
@@ -616,8 +616,16 @@ raiz.addEventListener("click", async (e) => {
     redirigir.disabled = true;
     redirigir.textContent = "El oráculo lo está evaluando…";
     try {
-      const nuevo = await api.post<{ id: number }>(`/api/candidatos/${id}/postular-a/${redirigir.dataset.vacante}`, {});
-      location.href = `/candidatos/${nuevo.id}?nuevo=1`;
+      const nuevo = await api.post<{ id: number; cargo: string; visible: boolean }>(
+        `/api/candidatos/${id}/postular-a/${redirigir.dataset.vacante}`, {});
+      if (nuevo.visible) {
+        location.href = `/candidatos/${nuevo.id}?nuevo=1`;
+        return;
+      }
+      // Es un cargo de otra área: su líder lo verá en su vacante.
+      toast(`Quedó postulado a ${nuevo.cargo}. Su líder ya lo ve en esa vacante.`);
+      redirigir.textContent = "Postulado a ese cargo ✓";
+      return;
     } catch (err) {
       toast(err instanceof ApiError ? err.message : "No se pudo postular a ese cargo.", "error");
       redirigir.disabled = false;

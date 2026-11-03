@@ -2,7 +2,7 @@ import { api, ApiError } from "../api.js";
 import {
   chipArquetipo, COLOR_ELEMENTO, iniciarNatal, leerNatal, panelAtributos, rellenarNatal, ruedaZodiacal,
 } from "../astro-ui.js";
-import { $, $$, confirmar, esc, iniciarDropzone, limpiarErrores, mostrarErrores, toast, vacio } from "../ui.js";
+import { $, $$, confirmar, esAdmin, esc, iniciarDropzone, limpiarErrores, mostrarErrores, sesion, toast, vacio } from "../ui.js";
 import type { JefeSugerido, Lider } from "../types.js";
 
 const dlg = $<HTMLDialogElement>("#dlg-lider");
@@ -34,6 +34,7 @@ function opcionesJefe(id: number | null, actual: number | null): void {
 
 /** Sugiere el jefe inmediato según el perfil del cargo del líder (su «superior inmediato»). */
 async function sugerirJefe(): Promise<void> {
+  if (!esAdmin) return;
   const caja = $("#jefe-sugerido");
   const cargo = (form.elements.namedItem("cargo") as HTMLInputElement).value.trim();
   const s = cargo ? await api.get<JefeSugerido | null>(`/api/lideres/jefe-sugerido?cargo=${encodeURIComponent(cargo)}${editandoId ? `&id=${editandoId}` : ""}`) : null;
@@ -86,8 +87,8 @@ function tarjetaLider(l: Lider): string {
         })()}</span>
         <div class="lista-acciones">
           ${l.carta ? `<button class="btn btn-sm" data-carta="${l.id}">Ver carta</button>` : ""}
-          <button class="btn btn-sec btn-sm" data-editar="${l.id}">Editar</button>
-          <button class="btn btn-peligro btn-sm" data-borrar="${l.id}" aria-label="Eliminar a ${esc(l.nombre)}">Eliminar</button>
+          ${esAdmin || l.id === sesion.liderId ? `<button class="btn btn-sec btn-sm" data-editar="${l.id}">Editar</button>` : ""}
+          ${esAdmin ? `<button class="btn btn-peligro btn-sm" data-borrar="${l.id}" aria-label="Eliminar a ${esc(l.nombre)}">Eliminar</button>` : ""}
         </div>
       </footer>
     </article>`;
@@ -131,6 +132,12 @@ async function abrir(lider?: Lider): Promise<void> {
   }
   await rellenarNatal(form, lider ?? {});
   opcionesJefe(editandoId, lider?.jefe_id ?? null);
+  // Un líder edita su ficha, pero a quién reporta lo define el administrador.
+  selJefe.disabled = !esAdmin;
+  if (!esAdmin) {
+    const jefe = lideres.find((l) => l.id === lider?.id)?.jefe_nombre;
+    selJefe.innerHTML = `<option value="">${jefe ? esc(jefe) : "Nadie: encabeza la cadena"}</option>`;
+  }
   $("#jefe-sugerido").hidden = true;
   if (lider) sugerirJefe().catch(() => undefined);
   refrescarCv();
@@ -210,9 +217,9 @@ async function abrirCarta(l: Lider): Promise<void> {
   dlgCarta.showModal();
 }
 
-$("#btn-nuevo-lider").addEventListener("click", () => abrir());
+$("#btn-nuevo-lider")?.addEventListener("click", () => abrir());
 
 iniciarNatal(form).then(() => {
-  if (new URLSearchParams(location.search).has("nuevo")) abrir();
+  if (esAdmin && new URLSearchParams(location.search).has("nuevo")) abrir();
 });
 cargar().catch(() => toast("No se pudieron cargar los líderes.", "error"));

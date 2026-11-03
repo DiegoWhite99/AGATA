@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { COLOR_ELEMENTO } from "../astro-ui.js";
-import { $, esc, toast, vacio } from "../ui.js";
+import { $, esAdmin, esc, toast, vacio } from "../ui.js";
 const TIPO_TXT = { empresa: "Empresa", lider: "Líder", vacante: "Cargo", candidato: "Postulante" };
 const ANILLO = 125;
 const MARGEN = 120;
@@ -52,7 +52,7 @@ function arbol(centro) {
         .map((l) => ramaLider(l.id, l.sinastria_empresa, empresa, visitados));
     return nodo({
         id: "empresa", tipo: "empresa", nombre: datos.empresa?.nombre ?? "La empresa", detalle: "Carta de fundación",
-        enlace: "/empresa", arquetipo: datos.empresa?.arquetipo ?? null, hijos: cabezas,
+        enlace: esAdmin ? "/empresa" : "/red", arquetipo: datos.empresa?.arquetipo ?? null, hijos: cabezas,
     });
 }
 // --- Disposición radial: cada nivel en un anillo, cada rama con un ángulo según sus hojas ---------

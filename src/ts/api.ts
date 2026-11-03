@@ -5,7 +5,8 @@ export class ApiError extends Error {
 }
 
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
-  const init: RequestInit = { method, headers: {} };
+  // El servidor rechaza cualquier cambio que no traiga X-AGATA (protección contra CSRF).
+  const init: RequestInit = { method, headers: { "X-AGATA": "1" } };
   if (body instanceof FormData) {
     init.body = body;
   } else if (body !== undefined) {
@@ -13,6 +14,10 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
     (init.headers as Record<string, string>)["Content-Type"] = "application/json";
   }
   const res = await fetch(url, init);
+  if (res.status === 401 && !location.pathname.startsWith("/login")) {
+    // La sesión venció: a iniciar sesión y de vuelta a esta página.
+    location.href = `/login?siguiente=${encodeURIComponent(location.pathname + location.search)}`;
+  }
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

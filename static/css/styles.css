@@ -157,6 +157,26 @@ h3 { font-size: 1rem; }
   transition: transform 0.45s cubic-bezier(.2, .8, .2, 1), width 0.45s cubic-bezier(.2, .8, .2, 1), opacity 0.3s;
 }
 .nav-hilo.sin-transicion { transition: none; }
+
+/* --- Sesión: quién entró y salir --- */
+.sesion { display: flex; align-items: center; gap: 0.7rem; flex-shrink: 0; }
+.sesion-quien { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.15; color: var(--text); font-size: 0.95rem; max-width: 16ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sesion-quien small { font-family: var(--font-display); font-size: 0.6rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--gold); }
+@media (max-width: 1320px) {
+  .topbar { flex-wrap: wrap; justify-content: center; }
+  .nav { flex-wrap: wrap; justify-content: center; }
+  .nav a { padding: 0.35rem 0.65rem 0.55rem; letter-spacing: 0.12em; }
+}
+.aviso-local { margin: 0 0 1.2rem; padding: 0.55rem 0.9rem; border: 1px dashed var(--border-strong); border-radius: var(--radius-sm); color: var(--muted); font-style: italic; font-size: 0.95rem; }
+.aviso-local code, .login code { font-family: ui-monospace, monospace; font-style: normal; font-size: 0.85em; color: var(--gold-bright); }
+
+/* --- Inicio de sesión --- */
+.login { max-width: 34rem; margin: 3rem auto; text-align: center; display: grid; justify-items: center; gap: 0.9rem; }
+.login .eyebrow { justify-content: center; }
+.login .lead { margin-inline: auto; }
+.btn-google { gap: 0.7rem; padding: 0.8rem 1.6rem; font-size: 0.8rem; }
+.btn-google svg { width: 20px; height: 20px; background: #fff; border-radius: 50%; padding: 2px; }
+.login-error { margin: 0; color: var(--descartado); font-style: italic; }
 .chispa { position: absolute; top: 40%; color: var(--gold-bright); font-size: 0.6rem; pointer-events: none; animation: chispa 0.9s ease-out forwards; text-shadow: 0 0 6px var(--flame); }
 @keyframes chispa { from { opacity: 1; transform: translate(0, 0) scale(1); } to { opacity: 0; transform: translate(var(--dx), -26px) scale(0.4) rotate(90deg); } }
 

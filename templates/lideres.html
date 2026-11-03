@@ -9,7 +9,7 @@
     <p class="lead">El líder describe en detalle su área, su forma de liderar y lo que espera del nuevo integrante,
       y entrega su hoja de vida. El oráculo usa todo esto, junto con su carta astral, para medir la sinergia con cada postulante.</p>
   </div>
-  <button class="btn" id="btn-nuevo-lider">+ Registrar líder</button>
+  {% if usuario.rol == 'admin' %}<button class="btn" id="btn-nuevo-lider">+ Registrar líder</button>{% endif %}
 </header>
 
 <section id="lista-lideres" class="grid-cards"></section>

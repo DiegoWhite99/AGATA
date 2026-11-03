@@ -9,7 +9,7 @@ AGATA is a Flask + SQLite job-matching app that scores applicants mainly on astr
 ```bash
 ./instalar.sh                        # fresh machine: .venv + requirements + npm build + .env from .env.example
 .venv/bin/pip install -r requirements.txt
-.venv/bin/python app.py              # dev server on http://localhost:5000 (debug=True)
+.venv/bin/python app.py              # dev server on http://localhost:5000 (debug=True); AGATA_SIN_LOGIN=1 in .env skips login
 .venv/bin/python seed.py             # demo data; refuses if the DB has records
 .venv/bin/python seed.py --forzar    # wipes agata.db AND everything in uploads/, then seeds
 
@@ -25,6 +25,23 @@ There is no test suite and no linter. To exercise backend logic, call modules di
 `GROQ_API_KEY` (and optionally `GROQ_MODEL`, default `openai/gpt-oss-120b`) goes in `.env`, which `oraculo.cargar_env` loads without overriding existing env vars. Without a key the app still works: the AI component drops out of the score.
 
 ## Architecture
+
+**Access control (`acceso.py`, `_control_de_acceso` in `app.py`)**: `before_request` makes every route admin-only by
+default. A route opens up only through a decorator placed under `@app.get(...)`: `@publica` for the public
+application flow (`/postular`, `/api/vacantes/<id>/publica`, the application POST, `/api/carta`, `/api/ciudades`,
+login/logout) or `@para_lideres`. Leader routes must also restrict data to the leader's chain of command. Use
+`_filtro_alcance(con, columna)` in SQL, or `_exigir_lider` / `_exigir_vacante` / `_exigir_candidato` for one
+record. `acceso.alcance` walks `lideres.jefe_id` downward from `usuarios.lider_id`. Firebase only proves identity.
+Google sign-in runs in `pages/login.ts`, with the SDK loaded from the gstatic CDN and typed by `src/ts/firebase.d.ts`.
+The server checks the ID token against Google's public keys (`google.oauth2.id_token`) on the Spark plan, so no
+Google Cloud credentials and no `firebase-admin`. It then checks the `usuarios` table and stores
+`{uid, email, desde}` in Flask's signed session (`AGATA_SECRET_KEY`, 12 h, Secure cookie).
+`usuarios.sesiones_desde` invalidates older sessions on logout. `AGATA_ADMINS` emails are always admins, which is
+how the first admin gets in. Every mutating request must carry `X-AGATA: 1` (CSRF guard); `api.ts` adds it, so
+don't bypass `api.ts`. `AGATA_SIN_LOGIN=1` logs everyone in as admin, but only under `python app.py`: the
+`__main__` block calls `acceso.servidor_de_desarrollo()`, which a WSGI server never does. The frontend reads the
+role from `<body data-rol data-lider>` via `ui.ts` (`esAdmin`, `sesion`). That only hides buttons; the server
+enforces. A public applicant gets `{"recibida": true}` back, never the score or the report.
 
 **Request flow for a new application** (`POST /api/vacantes/<id>/postulaciones` in `app.py`):
 `_datos_natales` validates birth data and calls `astro.calcular_carta` → `_guardar_cv` stores the file in `uploads/` and extracts its text (`evaluador.extraer_texto_cv`) → `_evaluar` runs `evaluador.evaluar` once without AI, passes that result to `oraculo.consultar` (Groq), then runs `evaluador.evaluar` again with the AI verdict → the result JSON, AI JSON, score and verdict are saved on the `candidatos` row.
@@ -48,6 +65,12 @@ There is no test suite and no linter. To exercise backend logic, call modules di
 **Re-evaluation cascades**: saving the company re-scores every vacancy, editing a leader re-scores that leader's vacancies, and editing a vacancy re-scores it (`_reevaluar_vacante`). These recalculations reuse the stored AI verdict (`candidatos.ia`). Groq is called again only on a new application or `POST /api/candidatos/<id>/oraculo`.
 
 **Startup (`preparar_db` in `app.py`)**: runs on import. It creates and migrates the schema, upgrades stored charts whose `version < astro.VERSION_CARTA`, and re-scores vacancies whose results are outdated.
+
+**Production (free)**: `docs/despliegue.md` is the user-facing guide. It runs on a free PythonAnywhere account
+(WSGI imports `app:app`; one worker; SQLite and `uploads/` on its persistent disk). Firebase Authentication is on
+Spark, with no Blaze. Free accounts only reach allowlisted hosts through a proxy: Groq, GitHub and googleapis
+work, most portfolios don't. `urllib` picks up the proxy from the environment, so keep using default openers.
+Disk is 512 MB, so keep dependencies light.
 
 ## Conventions and gotchas
 

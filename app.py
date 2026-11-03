@@ -4,14 +4,17 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import re
 import shutil
 import uuid
 from pathlib import Path
 
-from flask import Flask, Response, abort, jsonify, render_template, request, send_from_directory
+from flask import (Flask, Response, abort, g, jsonify, redirect, render_template, request, send_from_directory,
+                   session, url_for)
 from werkzeug.utils import secure_filename
 
+import acceso
 import astro
 import enlaces
 import evaluador
@@ -32,7 +35,15 @@ MIN_EXPECTATIVAS_LIDER = 100
 MIN_DESC_VACANTE = 150
 
 app = Flask(__name__)
-app.config["MAX_CONTENT_LENGTH"] = 5 * 1024 * 1024
+app.config.update(
+    MAX_CONTENT_LENGTH=5 * 1024 * 1024,
+    # Sesión: cookie firmada con AGATA_SECRET_KEY, que vence a las 12 horas y solo viaja por HTTPS.
+    SECRET_KEY=os.environ.get("AGATA_SECRET_KEY") or None,
+    SESSION_COOKIE_NAME="agata_sesion",
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,
+    PERMANENT_SESSION_LIFETIME=acceso.DURACION,
+)
 app.teardown_appcontext(close_db)
 
 
@@ -50,6 +61,93 @@ def _error_validacion(err: ErrorValidacion):
 @app.errorhandler(413)
 def _muy_grande(_err):
     return jsonify({"error": "El archivo supera el máximo de 5 MB."}), 413
+
+
+@app.errorhandler(403)
+def _prohibido(_err):
+    if request.path.startswith("/api/"):
+        return jsonify({"error": "No tienes acceso a esto: está fuera de tu cadena de mando."}), 403
+    return render_template("sin_acceso.html", pagina=None), 403
+
+
+# --- Acceso ------------------------------------------------------------------------
+# Toda ruta exige sesión de administrador, salvo las marcadas con @publica (la postulación y lo que usa)
+# o con @para_lideres (los líderes la usan, limitada a su cadena de mando). Así una ruta nueva nace cerrada.
+
+def publica(vista):
+    vista.acceso = "publica"
+    return vista
+
+
+def para_lideres(vista):
+    vista.acceso = "lider"
+    return vista
+
+
+@app.before_request
+def _control_de_acceso():
+    if request.endpoint == "static":
+        return None
+    # Contra CSRF: todo lo que cambia datos llega desde api.ts, que pone esta cabecera; un formulario de
+    # otro sitio no puede ponerla.
+    if request.method not in ("GET", "HEAD", "OPTIONS") and request.headers.get("X-AGATA") != "1":
+        return jsonify({"error": "Solicitud rechazada."}), 403
+    vista = app.view_functions.get(request.endpoint)
+    g.usuario = acceso.usuario_actual(get_db(), session)
+    nivel = getattr(vista, "acceso", None)
+    if vista is None or nivel == "publica":
+        return None
+    es_api = request.path.startswith("/api/")
+    if g.usuario is None:
+        if es_api:
+            return jsonify({"error": "Tu sesión terminó. Vuelve a iniciar sesión."}), 401
+        return redirect(url_for("pagina_login", siguiente=request.full_path.rstrip("?")))
+    if g.usuario["rol"] != "admin" and nivel != "lider":
+        if es_api:
+            return jsonify({"error": "Esta acción es solo para administradores."}), 403
+        return render_template("sin_acceso.html", pagina=None), 403
+    return None
+
+
+@app.context_processor
+def _sesion_en_plantillas():
+    return {"usuario": g.get("usuario")}
+
+
+def _alcance(con) -> set[int] | None:
+    """Líderes cuyos cargos ve el usuario (None: todos)."""
+    if "alcance" not in g:
+        g.alcance = acceso.alcance(con, g.usuario)
+    return g.alcance
+
+
+def _filtro_alcance(con, columna: str) -> tuple[str, tuple]:
+    """Condición SQL que deja solo a los líderes que ve el usuario (para un administrador, todos)."""
+    ids = _alcance(con)
+    if ids is None:
+        return "1", ()
+    return (f"{columna} IN ({', '.join('?' * len(ids))})", tuple(ids)) if ids else ("0", ())
+
+
+def _exigir_lider(con, lid: int | None) -> None:
+    ids = _alcance(con)
+    if ids is not None and lid not in ids:
+        abort(403)
+
+
+def _exigir_vacante(con, vid: int) -> None:
+    fila = con.execute("SELECT lider_id FROM vacantes WHERE id=?", (vid,)).fetchone()
+    if not fila:
+        abort(404)
+    _exigir_lider(con, fila["lider_id"])
+
+
+def _exigir_candidato(con, cid: int) -> None:
+    fila = con.execute("SELECT v.lider_id FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id WHERE c.id=?",
+                       (cid,)).fetchone()
+    if not fila:
+        abort(404)
+    _exigir_lider(con, fila["lider_id"])
 
 
 def _texto(data: dict, campo: str) -> str:
@@ -125,12 +223,24 @@ def _empresa(con) -> dict | None:
 
 # --- Páginas ---------------------------------------------------------------
 
+@app.get("/login")
+@publica
+def pagina_login():
+    siguiente = acceso.destino_seguro(request.args.get("siguiente"))
+    if g.usuario:
+        return redirect(siguiente)
+    return render_template("login.html", pagina="login", firebase=acceso.config_web(), faltan=acceso.faltantes(),
+                           siguiente=siguiente)
+
+
 @app.get("/")
+@para_lideres
 def pagina_panel():
     return render_template("panel.html", pagina="panel")
 
 
 @app.get("/lideres")
+@para_lideres
 def pagina_lideres():
     return render_template("lideres.html", pagina="lideres", min_desc=MIN_DESC_LIDER,
                            min_estilo=MIN_ESTILO_LIDER, min_expect=MIN_EXPECTATIVAS_LIDER)
@@ -147,51 +257,172 @@ def pagina_perfiles():
 
 
 @app.get("/vacantes")
+@para_lideres
 def pagina_vacantes():
     return render_template("vacantes.html", pagina="vacantes", min_desc=MIN_DESC_VACANTE)
 
 
 @app.get("/vacantes/<int:vid>")
+@para_lideres
 def pagina_vacante(vid: int):
+    _exigir_vacante(get_db(), vid)
     return render_template("vacante.html", pagina="vacantes", vacante_id=vid)
 
 
 @app.get("/postular/<int:vid>")
+@publica
 def pagina_postular(vid: int):
     return render_template("postular.html", pagina="vacantes", vacante_id=vid)
 
 
 @app.get("/candidatos/<int:cid>")
+@para_lideres
 def pagina_informe(cid: int):
+    _exigir_candidato(get_db(), cid)
     return render_template("informe.html", pagina="vacantes", candidato_id=cid)
 
 
 @app.get("/red")
+@para_lideres
 def pagina_red():
     return render_template("red.html", pagina="red")
+
+
+@app.get("/usuarios")
+def pagina_usuarios():
+    return render_template("usuarios.html", pagina="usuarios")
+
+
+# --- API: sesión y usuarios ----------------------------------------------------------
+
+@app.post("/api/sesion")
+@publica
+def api_iniciar_sesion():
+    """Recibe el token de Google del navegador y abre la sesión (solo si el correo está autorizado)."""
+    if not acceso.config_web():
+        return jsonify({"error": "El inicio de sesión no está configurado en este servidor."}), 503
+    try:
+        usuario = acceso.iniciar(get_db(), (request.get_json(force=True) or {}).get("id_token"))
+    except acceso.ErrorAcceso as err:
+        return jsonify({"error": str(err)}), 403
+    session.clear()
+    session.permanent = True
+    session.update(acceso.datos_de_sesion(usuario))
+    return jsonify({"nombre": usuario["nombre"], "rol": usuario["rol"]})
+
+
+@app.delete("/api/sesion")
+@publica
+def api_cerrar_sesion():
+    if g.usuario and not g.usuario.get("local"):
+        acceso.cerrar(get_db(), g.usuario)
+    session.clear()
+    return "", 204
+
+
+@app.get("/api/usuarios")
+def api_usuarios():
+    filas = rows_to_list(get_db().execute("""
+        SELECT u.id, u.email, u.nombre, u.rol, u.lider_id, u.ultimo_ingreso, u.creado,
+               l.nombre AS lider_nombre, l.cargo AS lider_cargo
+        FROM usuarios u LEFT JOIN lideres l ON l.id = u.lider_id ORDER BY u.rol, u.nombre, u.email"""))
+    fijos = acceso.admins_fijos()
+    return jsonify([{**u, "fijo": u["email"] in fijos, "yo": u["id"] == g.usuario["id"]} for u in filas])
+
+
+def _validar_usuario(data: dict, uid: int | None = None) -> dict:
+    con = get_db()
+    errores: dict[str, str] = {}
+    usuario = {"email": _texto(data, "email").lower(), "nombre": _texto(data, "nombre") or None,
+               "rol": data.get("rol"), "lider_id": None}
+    if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", usuario["email"]):
+        errores["email"] = "Correo inválido."
+    elif con.execute("SELECT 1 FROM usuarios WHERE email=? AND id IS NOT ?", (usuario["email"], uid)).fetchone():
+        errores["email"] = "Ese correo ya tiene acceso."
+    if usuario["rol"] not in acceso.ROLES:
+        errores["rol"] = "Elige un rol."
+    elif usuario["rol"] == "lider":
+        try:
+            usuario["lider_id"] = int(data.get("lider_id"))
+            if not con.execute("SELECT 1 FROM lideres WHERE id=?", (usuario["lider_id"],)).fetchone():
+                raise ValueError
+        except (TypeError, ValueError):
+            errores["lider_id"] = "Elige su ficha de líder: define qué cargos verá."
+    if uid is not None and uid == g.usuario["id"]:
+        actual = con.execute("SELECT email FROM usuarios WHERE id=?", (uid,)).fetchone()
+        if usuario["rol"] != "admin":
+            errores["rol"] = "No puedes quitarte a ti mismo el rol de administrador."
+        if actual and actual["email"] != usuario["email"]:
+            errores["email"] = "No puedes cambiar tu propio correo: cerrarías tu sesión."
+    if usuario["email"] in acceso.admins_fijos() and usuario["rol"] != "admin":
+        errores["rol"] = "Este correo es administrador por configuración (AGATA_ADMINS)."
+    if errores:
+        raise ErrorValidacion(errores)
+    return usuario
+
+
+@app.post("/api/usuarios")
+def api_crear_usuario():
+    usuario = _validar_usuario(request.get_json(force=True) or {})
+    con = get_db()
+    cur = con.execute("INSERT INTO usuarios (email, nombre, rol, lider_id) VALUES (?, ?, ?, ?)",
+                      tuple(usuario.values()))
+    con.commit()
+    return jsonify({"id": cur.lastrowid}), 201
+
+
+@app.put("/api/usuarios/<int:uid>")
+def api_editar_usuario(uid: int):
+    con = get_db()
+    if not con.execute("SELECT 1 FROM usuarios WHERE id=?", (uid,)).fetchone():
+        abort(404)
+    usuario = _validar_usuario(request.get_json(force=True) or {}, uid)
+    con.execute("UPDATE usuarios SET email=?, nombre=?, rol=?, lider_id=? WHERE id=?", (*usuario.values(), uid))
+    con.commit()
+    return jsonify({"id": uid})
+
+
+@app.delete("/api/usuarios/<int:uid>")
+def api_borrar_usuario(uid: int):
+    con = get_db()
+    fila = con.execute("SELECT email FROM usuarios WHERE id=?", (uid,)).fetchone()
+    if not fila:
+        abort(404)
+    if uid == g.usuario["id"]:
+        return jsonify({"error": "No puedes quitarte el acceso a ti mismo."}), 409
+    if fila["email"] in acceso.admins_fijos():
+        return jsonify({"error": "Es administrador por configuración (AGATA_ADMINS): quítalo de ahí primero."}), 409
+    con.execute("DELETE FROM usuarios WHERE id=?", (uid,))
+    con.commit()
+    return "", 204
 
 
 # --- API: catálogos y panel --------------------------------------------------
 
 @app.get("/api/ciudades")
+@publica
 def api_ciudades():
     return jsonify(CIUDADES)
 
 
 @app.get("/api/panel")
+@para_lideres
 def api_panel():
     con = get_db()
-    conteo = {r["decision_lider"]: r["n"] for r in con.execute(
-        "SELECT decision_lider, COUNT(*) n FROM candidatos GROUP BY decision_lider")}
-    recientes = con.execute("""
+    en_alcance, params = _filtro_alcance(con, "v.lider_id")
+    conteo = {r["decision_lider"]: r["n"] for r in con.execute(f"""
+        SELECT c.decision_lider, COUNT(*) n FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id
+        WHERE {en_alcance} GROUP BY c.decision_lider""", params)}
+    recientes = con.execute(f"""
         SELECT c.id, c.nombre, c.puntaje, c.decision_lider, c.creado,
                json_extract(c.carta, '$.arquetipo') AS arquetipo, v.cargo, v.id AS vacante_id
         FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id
-        ORDER BY c.id DESC LIMIT 8""").fetchall()
+        WHERE {en_alcance} ORDER BY c.id DESC LIMIT 8""", params).fetchall()
+    lideres_en_alcance, params_l = _filtro_alcance(con, "id")
     return jsonify({
         "vacantes_abiertas": con.execute(
-            "SELECT COUNT(*) FROM vacantes WHERE estado='abierta'").fetchone()[0],
-        "lideres": con.execute("SELECT COUNT(*) FROM lideres").fetchone()[0],
+            f"SELECT COUNT(*) FROM vacantes v WHERE v.estado='abierta' AND {en_alcance}", params).fetchone()[0],
+        "lideres": con.execute(f"SELECT COUNT(*) FROM lideres WHERE {lideres_en_alcance}", params_l).fetchone()[0],
         "candidatos": sum(conteo.values()),
         "pendientes": conteo.get(None, 0),
         "aprobados": conteo.get("aprobado", 0),
@@ -205,23 +436,27 @@ def api_panel():
 
 
 @app.get("/api/red")
+@para_lideres
 def api_red():
     """La red: empresa, cadena de mando de los líderes, sus vacantes y los postulantes, con el rol de
-    cada uno y la fuerza de cada sinapsis (la sinastría con quien está arriba)."""
+    cada uno y la fuerza de cada sinapsis (la sinastría con quien está arriba). Un líder ve su rama."""
     con = get_db()
     empresa = _empresa(con)
     carta_empresa = empresa["carta"] if empresa else None
-    lideres = rows_to_list(con.execute("SELECT id, nombre, cargo, area, jefe_id, carta FROM lideres ORDER BY nombre"))
+    lideres_en_alcance, params_l = _filtro_alcance(con, "id")
+    en_alcance, params = _filtro_alcance(con, "v.lider_id")
+    lideres = rows_to_list(con.execute(
+        f"SELECT id, nombre, cargo, area, jefe_id, carta FROM lideres WHERE {lideres_en_alcance} ORDER BY nombre", params_l))
     por_id = {l["id"]: l for l in lideres}
 
     def sinastria(a: dict | None, b: dict | None) -> float | None:
         return astro.sinastria(a, b, "a", "b")["puntaje"] if a and b else None
 
-    candidatos = rows_to_list(con.execute("""
-        SELECT id, nombre, vacante_id, puntaje, decision_lider, carta,
-               json_extract(resultado, '$.componentes.lider') AS sinastria_lider,
-               json_extract(resultado, '$.potencial.puntaje') AS potencial
-        FROM candidatos ORDER BY puntaje DESC"""))
+    candidatos = rows_to_list(con.execute(f"""
+        SELECT c.id, c.nombre, c.vacante_id, c.puntaje, c.decision_lider, c.carta,
+               json_extract(c.resultado, '$.componentes.lider') AS sinastria_lider,
+               json_extract(c.resultado, '$.potencial.puntaje') AS potencial
+        FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id WHERE {en_alcance} ORDER BY c.puntaje DESC""", params))
     return jsonify({
         "empresa": {"nombre": empresa["nombre"], "arquetipo": (carta_empresa or {}).get("arquetipo")} if empresa else None,
         "lideres": [{"id": l["id"], "nombre": l["nombre"], "cargo": l["cargo"], "area": l["area"],
@@ -230,7 +465,7 @@ def api_red():
                      "sinastria_jefe": sinastria(l["carta"], (por_id.get(l["jefe_id"]) or {}).get("carta")),
                      "sinastria_empresa": sinastria(l["carta"], carta_empresa)} for l in lideres],
         "vacantes": rows_to_list(con.execute(
-            "SELECT id, cargo, area, lider_id, estado, tecnico FROM vacantes ORDER BY id")),
+            f"SELECT id, cargo, area, lider_id, estado, tecnico FROM vacantes v WHERE {en_alcance} ORDER BY id", params)),
         "candidatos": [{**{k: c[k] for k in ("id", "nombre", "vacante_id", "puntaje", "decision_lider",
                                               "sinastria_lider", "potencial")},
                         "arquetipo": (c["carta"] or {}).get("arquetipo")} for c in candidatos],
@@ -238,6 +473,7 @@ def api_red():
 
 
 @app.post("/api/carta")
+@publica
 def api_carta():
     """Calcula una carta sin guardarla, para mostrarle al postulante lo que dicta antes de enviar."""
     errores: dict[str, str] = {}
@@ -349,11 +585,14 @@ def _lider_publico(lider: dict | None) -> dict | None:
 
 
 @app.get("/api/lideres")
+@para_lideres
 def api_lideres():
-    rows = get_db().execute("""
+    con = get_db()
+    en_alcance, params = _filtro_alcance(con, "l.id")
+    rows = con.execute(f"""
         SELECT l.*, (SELECT COUNT(*) FROM vacantes v WHERE v.lider_id = l.id) AS vacantes,
                (SELECT j.nombre FROM lideres j WHERE j.id = l.jefe_id) AS jefe_nombre
-        FROM lideres l ORDER BY l.nombre""").fetchall()
+        FROM lideres l WHERE {en_alcance} ORDER BY l.nombre""", params).fetchall()
     return jsonify([_lider_publico(l) for l in rows_to_list(rows)])
 
 
@@ -380,16 +619,22 @@ def api_jefe_sugerido():
 
 
 @app.get("/api/lideres/<int:lid>")
+@para_lideres
 def api_lider(lid: int):
-    lider = row_to_dict(get_db().execute("SELECT * FROM lideres WHERE id=?", (lid,)).fetchone())
+    con = get_db()
+    lider = row_to_dict(con.execute("SELECT * FROM lideres WHERE id=?", (lid,)).fetchone())
     if not lider:
         abort(404)
+    _exigir_lider(con, lid)
     return jsonify(_lider_publico(lider))
 
 
 @app.get("/api/lideres/<int:lid>/cv")
+@para_lideres
 def api_cv_lider(lid: int):
-    fila = get_db().execute("SELECT cv_archivo FROM lideres WHERE id=?", (lid,)).fetchone()
+    con = get_db()
+    _exigir_lider(con, lid)
+    fila = con.execute("SELECT cv_archivo FROM lideres WHERE id=?", (lid,)).fetchone()
     return _enviar_cv(fila["cv_archivo"] if fila else None)
 
 
@@ -408,12 +653,19 @@ def api_crear_lider():
 
 
 @app.put("/api/lideres/<int:lid>")
+@para_lideres
 def api_editar_lider(lid: int):
+    """El administrador edita cualquier ficha; un líder, solo la suya y sin cambiar a quién reporta."""
     con = get_db()
-    anterior = con.execute("SELECT cv_archivo FROM lideres WHERE id=?", (lid,)).fetchone()
+    anterior = con.execute("SELECT cv_archivo, jefe_id FROM lideres WHERE id=?", (lid,)).fetchone()
     if not anterior:
         abort(404)
-    lider = _validar_lider(request.form, lid)
+    datos = request.form.to_dict()
+    if g.usuario["rol"] != "admin":
+        if lid != g.usuario["lider_id"]:
+            abort(403)
+        datos["jefe_id"] = str(anterior["jefe_id"] or "")
+    lider = _validar_lider(datos, lid)
     archivo = _archivo_cv()
     if archivo:  # si no sube una nueva hoja de vida, se conserva la anterior
         lider["cv_archivo"], lider["cv_texto"] = _guardar_cv(archivo)
@@ -444,7 +696,8 @@ def api_borrar_lider(lid: int):
 # --- API: vacantes -----------------------------------------------------------
 
 def _lista_vacantes(con, solo_abiertas: bool = False) -> list[dict]:
-    filtro = "WHERE v.estado='abierta'" if solo_abiertas else ""
+    en_alcance, params = _filtro_alcance(con, "v.lider_id")
+    filtro = f"WHERE {en_alcance}" + (" AND v.estado='abierta'" if solo_abiertas else "")
     rows = con.execute(f"""
         SELECT v.*, l.nombre AS lider_nombre, l.cargo AS lider_cargo,
                COUNT(c.id) AS candidatos,
@@ -454,7 +707,7 @@ def _lista_vacantes(con, solo_abiertas: bool = False) -> list[dict]:
                (SELECT COUNT(*) FROM habilidades h WHERE h.vacante_id = v.id) AS n_habilidades
         FROM vacantes v JOIN lideres l ON l.id = v.lider_id
         LEFT JOIN candidatos c ON c.vacante_id = v.id
-        {filtro} GROUP BY v.id ORDER BY v.id DESC""").fetchall()
+        {filtro} GROUP BY v.id ORDER BY v.id DESC""", params).fetchall()
     return rows_to_list(rows)
 
 
@@ -547,6 +800,7 @@ def _vacante_completa(con, vid: int) -> dict | None:
 
 
 @app.get("/api/vacantes")
+@para_lideres
 def api_vacantes():
     con = get_db()
     lista = _lista_vacantes(con)
@@ -557,11 +811,13 @@ def api_vacantes():
 
 
 @app.get("/api/vacantes/<int:vid>")
+@para_lideres
 def api_vacante(vid: int):
     con = get_db()
     vac = _vacante_completa(con, vid)
     if not vac:
         abort(404)
+    _exigir_lider(con, vac["lider_id"])
     vac["lider"] = _lider_publico(row_to_dict(con.execute("SELECT * FROM lideres WHERE id=?",
                                                           (vac["lider_id"],)).fetchone()))
     vac["candidatos"] = rows_to_list(con.execute(f"""
@@ -674,6 +930,7 @@ def api_plantilla_xlsx():
 
 
 @app.get("/api/vacantes/<int:vid>/publica")
+@publica
 def api_vacante_publica(vid: int):
     """Lo que ve el postulante de la vacante."""
     con = get_db()
@@ -826,6 +1083,7 @@ def _reevaluar_vacante(con, vid: int) -> None:
 
 
 @app.post("/api/vacantes/<int:vid>/postulaciones")
+@publica
 def api_postular(vid: int):
     con = get_db()
     vac = _vacante_completa(con, vid)
@@ -866,15 +1124,17 @@ def api_postular(vid: int):
     cur = con.execute(f"INSERT INTO candidatos ({', '.join(fila)}) "
                       f"VALUES ({', '.join('?' * len(fila))})", tuple(fila.values()))
     con.commit()
+    if not g.usuario:  # el postulante no ve su puntaje ni el informe: eso es para el líder
+        return jsonify({"recibida": True}), 201
     return jsonify({"id": cur.lastrowid, "puntaje": res["puntaje"]}), 201
 
 
 @app.get("/api/candidatos/<int:cid>")
+@para_lideres
 def api_candidato(cid: int):
     con = get_db()
+    _exigir_candidato(con, cid)
     cand = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
-    if not cand:
-        abort(404)
     cand.pop("cv_texto", None)
     vac = row_to_dict(con.execute("SELECT * FROM vacantes WHERE id=?",
                                   (cand["vacante_id"],)).fetchone())
@@ -908,11 +1168,13 @@ def _releer_enlaces(con, cand: dict, vac: dict, propios: dict[str, str] | None =
 
 
 @app.post("/api/candidatos/<int:cid>/oraculo")
+@para_lideres
 def api_reconsultar(cid: int):
     """Relee los enlaces, vuelve a pedirle el dictamen a la IA y recalcula el match del postulante."""
     if not oraculo.activo():
         return jsonify({"error": "Configura GROQ_API_KEY en el archivo .env para usar la IA."}), 409
     con = get_db()
+    _exigir_candidato(con, cid)
     cand = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
     if not cand:
         abort(404)
@@ -929,10 +1191,13 @@ def api_reconsultar(cid: int):
 
 
 @app.post("/api/candidatos/<int:cid>/postular-a/<int:vid>")
+@para_lideres
 def api_postular_a_otra(cid: int, vid: int):
     """Postula a la persona también a otra vacante abierta (la que se le sugiere), con sus mismos datos,
-    su hoja de vida y sus enlaces. La postulación original se conserva."""
+    su hoja de vida y sus enlaces. La postulación original se conserva. Un líder puede redirigir talento
+    a cargos de otras áreas: ese líder lo verá en su vacante."""
     con = get_db()
+    _exigir_candidato(con, cid)
     cand = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
     vac = _vacante_completa(con, vid)
     if not cand or not vac:
@@ -955,13 +1220,17 @@ def api_postular_a_otra(cid: int, vid: int):
     res = _evaluar(con, vac, nuevo, consultar_ia=oraculo.activo())
     _guardar_resultado(con, nuevo["id"], nuevo, res)
     con.commit()
-    return jsonify({"id": nuevo["id"], "puntaje": res["puntaje"]}), 201
+    alcance = _alcance(con)
+    return jsonify({"id": nuevo["id"], "puntaje": res["puntaje"], "cargo": vac["cargo"],
+                    "visible": alcance is None or vac["lider_id"] in alcance}), 201
 
 
 @app.put("/api/candidatos/<int:cid>/enlaces")
+@para_lideres
 def api_editar_enlaces(cid: int):
     """Cambia los enlaces del postulante, los lee y recalcula el match (con la IA si está activa)."""
     con = get_db()
+    _exigir_candidato(con, cid)
     cand = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
     if not cand:
         abort(404)
@@ -978,12 +1247,14 @@ def api_editar_enlaces(cid: int):
 
 
 @app.patch("/api/candidatos/<int:cid>/decision")
+@para_lideres
 def api_decision(cid: int):
     data = request.get_json(force=True) or {}
     decision = data.get("decision")
     if decision not in ("aprobado", "rechazado", None):
         abort(400)
     con = get_db()
+    _exigir_candidato(con, cid)
     con.execute("UPDATE candidatos SET decision_lider=?, nota_lider=? WHERE id=?",
                 (decision, _texto(data, "nota") or None, cid))
     con.commit()
@@ -1002,8 +1273,11 @@ def api_borrar_candidato(cid: int):
 
 
 @app.get("/api/candidatos/<int:cid>/cv")
+@para_lideres
 def api_cv(cid: int):
-    fila = get_db().execute("SELECT cv_archivo FROM candidatos WHERE id=?", (cid,)).fetchone()
+    con = get_db()
+    _exigir_candidato(con, cid)
+    fila = con.execute("SELECT cv_archivo FROM candidatos WHERE id=?", (cid,)).fetchone()
     return _enviar_cv(fila["cv_archivo"] if fila else None)
 
 
@@ -1052,4 +1326,7 @@ def preparar_db() -> None:
 preparar_db()
 
 if __name__ == "__main__":
+    # Servidor de desarrollo, en http://localhost: aquí (y solo aquí) puede valer AGATA_SIN_LOGIN=1.
+    acceso.servidor_de_desarrollo()
+    app.config["SESSION_COOKIE_SECURE"] = False
     app.run(debug=True, port=5000)

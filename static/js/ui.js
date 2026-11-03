@@ -1,6 +1,13 @@
 import { ApiError } from "./api.js";
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+/** Quién usa la página (el servidor lo pone en <body>). En la postulación pública no hay sesión: rol vacío. */
+export const sesion = {
+    rol: document.body.dataset.rol ?? "",
+    liderId: Number(document.body.dataset.lider) || null,
+};
+/** El administrador gestiona todo; un líder solo ve su cadena de mando y decide sobre sus postulantes. */
+export const esAdmin = sesion.rol === "admin";
 export function esc(valor) {
     return String(valor ?? "")
         .replace(/&/g, "&amp;")

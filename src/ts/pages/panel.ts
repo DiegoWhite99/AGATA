@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { COLOR_ELEMENTO, SIGNOS } from "../astro-ui.js";
-import { $, badgeDecision, barra, esc, fecha, toast, vacio } from "../ui.js";
+import { $, badgeDecision, barra, esAdmin, esc, fecha, toast, vacio } from "../ui.js";
 import type { Panel } from "../types.js";
 
 function kpi(valor: number, etiqueta: string, clase = ""): string {
@@ -51,7 +51,7 @@ async function cargar(): Promise<void> {
     ? `<i></i> Oráculo IA activo · ${esc(d.ia.modelo)} en Groq`
     : `<i></i> Oráculo IA apagado: agrega GROQ_API_KEY al archivo .env`;
 
-  ritual(d);
+  if (esAdmin) ritual(d); // los primeros pasos (empresa, líderes, cargos) son del administrador
 
   $("#kpis").innerHTML = `
     ${kpi(d.vacantes_abiertas, "Vacantes abiertas")}

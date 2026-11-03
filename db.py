@@ -107,6 +107,18 @@ CREATE TABLE IF NOT EXISTS candidatos (
     creado TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Quién puede entrar (inicio de sesión con Google vía Firebase). Un líder ve los cargos de su cadena de mando.
+CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    email TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    nombre TEXT,
+    rol TEXT NOT NULL DEFAULT 'lider',  -- 'admin' o 'lider'
+    lider_id INTEGER REFERENCES lideres(id) ON DELETE SET NULL,
+    sesiones_desde INTEGER NOT NULL DEFAULT 0,  -- al cerrar sesión, las sesiones emitidas antes dejan de valer
+    ultimo_ingreso TEXT,
+    creado TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Lectura guardada de cada archivo de la carpeta perfiles/ (se renueva si el archivo cambia).
 CREATE TABLE IF NOT EXISTS perfiles_cache (
     archivo TEXT PRIMARY KEY,

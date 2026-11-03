@@ -6,7 +6,8 @@ export class ApiError extends Error {
     }
 }
 async function request(method, url, body) {
-    const init = { method, headers: {} };
+    // El servidor rechaza cualquier cambio que no traiga X-AGATA (protección contra CSRF).
+    const init = { method, headers: { "X-AGATA": "1" } };
     if (body instanceof FormData) {
         init.body = body;
     }
@@ -15,6 +16,10 @@ async function request(method, url, body) {
         init.headers["Content-Type"] = "application/json";
     }
     const res = await fetch(url, init);
+    if (res.status === 401 && !location.pathname.startsWith("/login")) {
+        // La sesión venció: a iniciar sesión y de vuelta a esta página.
+        location.href = `/login?siguiente=${encodeURIComponent(location.pathname + location.search)}`;
+    }
     if (res.status === 204)
         return undefined;
     const data = await res.json().catch(() => ({}));

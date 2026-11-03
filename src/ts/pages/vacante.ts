@@ -2,7 +2,7 @@ import { api } from "../api.js";
 import { COLOR_ELEMENTO, tarjetaCarta } from "../astro-ui.js";
 import { avisoCopia, expectativasCargo, fichaPerfil, nivelRol } from "../perfil-ui.js";
 import { radar } from "../radar.js";
-import { $, $$, badgeDecision, barra, colorPuntaje, esc, fecha, toast, vacio } from "../ui.js";
+import { $, $$, badgeDecision, barra, colorPuntaje, esAdmin, esc, fecha, toast, vacio } from "../ui.js";
 import type { CandidatoFila, Vacante } from "../types.js";
 
 type EstadoDecision = "pendiente" | "aprobado" | "rechazado";
@@ -63,7 +63,7 @@ function seccionPerfil(): string {
       <p class="parrafo">${vac.perfil_id
         ? `El perfil con el que se creó este cargo («${esc(vac.perfil_archivo ?? vac.perfil_id)}») ya no está en Perfiles.`
         : "Este cargo no está ligado a ningún perfil."}</p>
-      <a class="btn btn-sec btn-sm" href="/vacantes?editar=${vac.id}&volver=1">Ligar a un perfil</a>
+      ${esAdmin ? `<a class="btn btn-sec btn-sm" href="/vacantes?editar=${vac.id}&volver=1">Ligar a un perfil</a>` : ""}
     </section>`;
   }
   return `<section class="tarjeta perfil-cargo">
@@ -94,7 +94,7 @@ function pintar(): void {
       <div class="acciones-wrap">
         ${vac.estado === "abierta" ? `<a class="btn" href="/postular/${vac.id}">+ Postular candidato</a>
         <button class="btn btn-sec" id="btn-copiar">Copiar link</button>` : ""}
-        <a class="btn btn-sec" href="/vacantes?editar=${vac.id}&volver=1">Editar cargo</a>
+        ${esAdmin ? `<a class="btn btn-sec" href="/vacantes?editar=${vac.id}&volver=1">Editar cargo</a>` : ""}
       </div>
     </header>
 
@@ -133,7 +133,7 @@ function pintar(): void {
           ${tarjetaCarta("Empresa", vac.empresa?.nombre ?? "La empresa", vac.empresa?.carta ?? null,
             "Aún no hay carta de la empresa: complétala en la sección Empresa.")}
         </div>
-        ${vac.empresa ? "" : `<p class="centro"><a class="btn btn-sec btn-sm" href="/empresa">Trazar la carta de la empresa</a></p>`}
+        ${vac.empresa || !esAdmin ? "" : `<p class="centro"><a class="btn btn-sec btn-sm" href="/empresa">Trazar la carta de la empresa</a></p>`}
         <p class="meta centro">Match = Líder ✶ ${vac.peso_lider} · Empresa ✶ ${vac.peso_empresa} · Elemento ${vac.peso_elemento} · Conflictos ${vac.peso_conflicto} · CV ${vac.peso_cv} · IA ${vac.peso_ia}
           ${vac.elemento_afin ? ` · Elemento afín: <b style="color:${COLOR_ELEMENTO[vac.elemento_afin]}">${esc(vac.elemento_afin)}</b>` : ""}</p>
       </section>

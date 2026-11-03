@@ -118,7 +118,7 @@ function pintarResumen() {
         || "Los tomamos de tu hoja de vida, si los trae"}</dd>
     </dl>
     <p class="ayuda">Al enviar, el oráculo cruza tu carta con la del líder y la de la empresa, lee tu hoja de vida
-      y pronuncia el informe de match.</p>`;
+      y el líder del cargo recibe el informe de match.</p>`;
 }
 // --- Eventos ------------------------------------------------------------------
 $("#btn-siguiente").addEventListener("click", () => {
@@ -159,7 +159,18 @@ form.addEventListener("submit", async (e) => {
             api.post(`/api/vacantes/${id}/postulaciones`, fd),
             new Promise((ok) => setTimeout(ok, 1400)), // deja ver la animación
         ]);
-        location.href = `/candidatos/${r.id}?nuevo=1`;
+        // Un líder o administrador con sesión ve el informe; el postulante, solo la confirmación.
+        if (r.id) {
+            location.href = `/candidatos/${r.id}?nuevo=1`;
+            return;
+        }
+        $("#postular").innerHTML = `<section class="tarjeta login">
+        <p class="eyebrow">Postulación recibida</p>
+        <h1>Gracias, ${esc(valor("nombre").split(" ")[0])}</h1>
+        <p class="lead">El oráculo ya cruzó tu carta con la del líder y la de la empresa, y leyó tu hoja de vida.
+          El líder del cargo revisa tu postulación y te contactará a ${esc(valor("email"))}.</p>
+      </section>`;
+        window.scrollTo({ top: 0 });
     }
     catch (err) {
         overlay.hidden = true;

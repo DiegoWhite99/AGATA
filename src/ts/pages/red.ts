@@ -1,6 +1,6 @@
 import { api } from "../api.js";
 import { COLOR_ELEMENTO } from "../astro-ui.js";
-import { $, esc, toast, vacio } from "../ui.js";
+import { $, esAdmin, esc, toast, vacio } from "../ui.js";
 import type { Arquetipo, DatosRed } from "../types.js";
 
 type Tipo = "empresa" | "lider" | "vacante" | "candidato";
@@ -84,7 +84,7 @@ function arbol(centro: string): Nodo {
     .map((l) => ramaLider(l.id, l.sinastria_empresa, empresa, visitados));
   return nodo({
     id: "empresa", tipo: "empresa", nombre: datos.empresa?.nombre ?? "La empresa", detalle: "Carta de fundación",
-    enlace: "/empresa", arquetipo: datos.empresa?.arquetipo ?? null, hijos: cabezas,
+    enlace: esAdmin ? "/empresa" : "/red", arquetipo: datos.empresa?.arquetipo ?? null, hijos: cabezas,
   });
 }
 

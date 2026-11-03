@@ -1,6 +1,6 @@
 import { api, ApiError } from "../api.js";
 import { chipArquetipo, COLOR_ELEMENTO, iniciarNatal, leerNatal, panelAtributos, rellenarNatal, ruedaZodiacal, } from "../astro-ui.js";
-import { $, $$, confirmar, esc, iniciarDropzone, limpiarErrores, mostrarErrores, toast, vacio } from "../ui.js";
+import { $, $$, confirmar, esAdmin, esc, iniciarDropzone, limpiarErrores, mostrarErrores, sesion, toast, vacio } from "../ui.js";
 const dlg = $("#dlg-lider");
 const form = $("#form-lider");
 const inputCv = form.querySelector("[name=cv]");
@@ -27,6 +27,8 @@ function opcionesJefe(id, actual) {
 }
 /** Sugiere el jefe inmediato según el perfil del cargo del líder (su «superior inmediato»). */
 async function sugerirJefe() {
+    if (!esAdmin)
+        return;
     const caja = $("#jefe-sugerido");
     const cargo = form.elements.namedItem("cargo").value.trim();
     const s = cargo ? await api.get(`/api/lideres/jefe-sugerido?cargo=${encodeURIComponent(cargo)}${editandoId ? `&id=${editandoId}` : ""}`) : null;
@@ -77,8 +79,8 @@ function tarjetaLider(l) {
     })()}</span>
         <div class="lista-acciones">
           ${l.carta ? `<button class="btn btn-sm" data-carta="${l.id}">Ver carta</button>` : ""}
-          <button class="btn btn-sec btn-sm" data-editar="${l.id}">Editar</button>
-          <button class="btn btn-peligro btn-sm" data-borrar="${l.id}" aria-label="Eliminar a ${esc(l.nombre)}">Eliminar</button>
+          ${esAdmin || l.id === sesion.liderId ? `<button class="btn btn-sec btn-sm" data-editar="${l.id}">Editar</button>` : ""}
+          ${esAdmin ? `<button class="btn btn-peligro btn-sm" data-borrar="${l.id}" aria-label="Eliminar a ${esc(l.nombre)}">Eliminar</button>` : ""}
         </div>
       </footer>
     </article>`;
@@ -119,6 +121,12 @@ async function abrir(lider) {
     }
     await rellenarNatal(form, lider ?? {});
     opcionesJefe(editandoId, lider?.jefe_id ?? null);
+    // Un líder edita su ficha, pero a quién reporta lo define el administrador.
+    selJefe.disabled = !esAdmin;
+    if (!esAdmin) {
+        const jefe = lideres.find((l) => l.id === lider?.id)?.jefe_nombre;
+        selJefe.innerHTML = `<option value="">${jefe ? esc(jefe) : "Nadie: encabeza la cadena"}</option>`;
+    }
     $("#jefe-sugerido").hidden = true;
     if (lider)
         sugerirJefe().catch(() => undefined);
@@ -205,9 +213,9 @@ async function abrirCarta(l) {
     ${panelAtributos(l.carta)}`;
     dlgCarta.showModal();
 }
-$("#btn-nuevo-lider").addEventListener("click", () => abrir());
+$("#btn-nuevo-lider")?.addEventListener("click", () => abrir());
 iniciarNatal(form).then(() => {
-    if (new URLSearchParams(location.search).has("nuevo"))
+    if (esAdmin && new URLSearchParams(location.search).has("nuevo"))
         abrir();
 });
 cargar().catch(() => toast("No se pudieron cargar los líderes.", "error"));

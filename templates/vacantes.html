@@ -9,7 +9,7 @@
     <p class="lead">Cada cargo nace de su perfil en Perfiles y tiene su líder, su matriz de
       habilidades y el peso de cada parte del match: la sinastría con el líder, con la empresa, el elemento afín y la hoja de vida.</p>
   </div>
-  <button class="btn" id="btn-nueva-vacante">+ Nuevo cargo</button>
+  {% if usuario.rol == 'admin' %}<button class="btn" id="btn-nueva-vacante">+ Nuevo cargo</button>{% endif %}
 </header>
 
 <div class="filtros" role="tablist" aria-label="Filtrar vacantes">

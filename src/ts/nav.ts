@@ -1,3 +1,5 @@
+import { api } from "./api.js";
+
 // Navegación animada: hilo dorado que sigue al cursor, chispas al pasar y barra que se compacta al bajar.
 const topbar = document.querySelector<HTMLElement>(".topbar");
 const nav = document.querySelector<HTMLElement>(".nav");
@@ -59,4 +61,8 @@ if (nav && topbar) {
   compactar();
 }
 
-export {};
+// Cerrar sesión: el servidor invalida la cookie y se vuelve al inicio de sesión.
+document.querySelector("#btn-salir")?.addEventListener("click", async () => {
+  await api.del("/api/sesion").catch(() => undefined);
+  location.href = "/login";
+});

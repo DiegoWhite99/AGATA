@@ -7,6 +7,14 @@ export const $ = <T extends Element = HTMLElement>(sel: string, root: ParentNode
 export const $$ = <T extends Element = HTMLElement>(sel: string, root: ParentNode = document) =>
   Array.from(root.querySelectorAll(sel)) as T[];
 
+/** Quién usa la página (el servidor lo pone en <body>). En la postulación pública no hay sesión: rol vacío. */
+export const sesion = {
+  rol: document.body.dataset.rol ?? "",
+  liderId: Number(document.body.dataset.lider) || null,
+};
+/** El administrador gestiona todo; un líder solo ve su cadena de mando y decide sobre sus postulantes. */
+export const esAdmin = sesion.rol === "admin";
+
 export function esc(valor: unknown): string {
   return String(valor ?? "")
     .replace(/&/g, "&amp;")

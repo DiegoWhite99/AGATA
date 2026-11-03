@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 40'><rect width='44' height='40' fill='%230b0810'/><path d='M22 3 L41 37 H3 Z' fill='none' stroke='%23d9b26a' stroke-width='2.4'/><path d='M12 27 Q22 17 32 27 Q22 35 12 27 Z' fill='none' stroke='%23d9b26a' stroke-width='2'/><circle cx='22' cy='27' r='3.4' fill='%23f2913f'/></svg>">
 </head>
-<body>
+<body data-rol="{{ usuario.rol if usuario else '' }}" data-lider="{{ (usuario.lider_id or '') if usuario else '' }}">
   <div class="cielo" aria-hidden="true"></div>
   <div class="vapores" aria-hidden="true"><span></span><span></span><span></span></div>
   <div class="columna columna-izq" aria-hidden="true"></div>
@@ -24,23 +24,35 @@
       </svg>
       <span class="logo-texto">AGATA<small>Oráculo de selección</small></span>
     </a>
+    {% if usuario %}
+    {% set admin = usuario.rol == 'admin' %}
     <nav class="nav" aria-label="Principal">
       <a href="/" style="--i:0" {% if pagina == 'panel' %}aria-current="page"{% endif %}>
         <span class="nav-glifo" aria-hidden="true">☉&#xFE0E;</span><span>Panel</span></a>
-      <a href="/empresa" style="--i:1" {% if pagina == 'empresa' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">♁&#xFE0E;</span><span>Empresa</span></a>
+      {% if admin %}<a href="/empresa" style="--i:1" {% if pagina == 'empresa' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">♁&#xFE0E;</span><span>Empresa</span></a>{% endif %}
       <a href="/lideres" style="--i:2" {% if pagina == 'lideres' %}aria-current="page"{% endif %}>
         <span class="nav-glifo" aria-hidden="true">♃&#xFE0E;</span><span>Líderes</span></a>
-      <a href="/perfiles" style="--i:3" {% if pagina == 'perfiles' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">♄&#xFE0E;</span><span>Perfiles</span></a>
+      {% if admin %}<a href="/perfiles" style="--i:3" {% if pagina == 'perfiles' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">♄&#xFE0E;</span><span>Perfiles</span></a>{% endif %}
       <a href="/vacantes" style="--i:4" {% if pagina == 'vacantes' %}aria-current="page"{% endif %}>
         <span class="nav-glifo" aria-hidden="true">△</span><span>Cargos y vacantes</span></a>
       <a href="/red" style="--i:5" {% if pagina == 'red' %}aria-current="page"{% endif %}>
         <span class="nav-glifo" aria-hidden="true">☊&#xFE0E;</span><span>Red</span></a>
+      {% if admin %}<a href="/usuarios" style="--i:6" {% if pagina == 'usuarios' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">⚷&#xFE0E;</span><span>Usuarios</span></a>{% endif %}
     </nav>
+    <div class="sesion">
+      <span class="sesion-quien" title="{{ usuario.email }}">{{ usuario.nombre or usuario.email }}
+        <small>{{ 'Administrador' if admin else 'Líder' }}</small></span>
+      {% if not usuario.local %}<button type="button" class="btn btn-sec btn-sm" id="btn-salir">Salir</button>{% endif %}
+    </div>
+    {% endif %}
   </header>
 
   <main class="contenedor">
+    {% if usuario and usuario.local %}<p class="aviso-local no-print">Modo local sin inicio de sesión
+      (<code>AGATA_SIN_LOGIN=1</code>): entras como administrador. En el servidor este modo no existe.</p>{% endif %}
     {% block contenido %}{% endblock %}
   </main>
 

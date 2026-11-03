@@ -2,7 +2,7 @@ import { api, ApiError } from "../api.js";
 import { COLOR_ELEMENTO } from "../astro-ui.js";
 import { nivelRol, opcionesPerfiles } from "../perfil-ui.js";
 import { radar } from "../radar.js";
-import { $, $$, confirmar, esc, fecha, iniciarDropzone, limpiarErrores, mostrarErrores, toast, vacio } from "../ui.js";
+import { $, $$, confirmar, esAdmin, esc, fecha, iniciarDropzone, limpiarErrores, mostrarErrores, toast, vacio } from "../ui.js";
 const dlg = $("#dlg-vacante");
 const form = $("#form-vacante");
 const contHab = $("#habilidades");
@@ -48,9 +48,9 @@ function tarjetaVacante(v) {
     <p class="meta">Líder: <strong>${esc(v.lider_nombre)}</strong> · ${esc(v.lider_cargo)}</p>
     ${v.perfil_id
         ? v.perfil_titulo
-            ? `<p class="perfil-ligado">▤ Perfil: <a href="/perfiles">${esc(v.perfil_titulo)}</a></p>`
+            ? `<p class="perfil-ligado">▤ Perfil: ${esAdmin ? `<a href="/perfiles">${esc(v.perfil_titulo)}</a>` : esc(v.perfil_titulo)}</p>`
             : `<p class="perfil-ligado falta">▤ Su perfil ya no está en Perfiles</p>`
-        : `<p class="perfil-ligado falta">▤ Sin perfil ligado: edítalo para ligarlo</p>`}
+        : `<p class="perfil-ligado falta">▤ Sin perfil ligado${esAdmin ? ": edítalo para ligarlo" : ""}</p>`}
     <p class="texto-corto">${esc(v.descripcion)}</p>
     <div class="vacante-stats">
       <div><strong>${v.candidatos}</strong><span>postulantes</span></div>
@@ -63,11 +63,11 @@ function tarjetaVacante(v) {
       · ${fecha(v.creado)}</p>
     <footer class="tarjeta-pie acciones-wrap">
       <a class="btn btn-sm" href="/vacantes/${v.id}">Ver postulantes</a>
-      <button class="btn btn-sec btn-sm" data-editar="${v.id}">Editar</button>
+      ${esAdmin ? `<button class="btn btn-sec btn-sm" data-editar="${v.id}">Editar</button>` : ""}
       <button class="btn btn-sec btn-sm" data-copiar="${v.id}" ${abierta ? "" : "disabled"}>Copiar link</button>
-      <button class="btn btn-sec btn-sm" data-duplicar="${v.id}">Duplicar</button>
+      ${esAdmin ? `<button class="btn btn-sec btn-sm" data-duplicar="${v.id}">Duplicar</button>
       <button class="btn btn-sec btn-sm" data-estado="${v.id}" data-nuevo="${abierta ? "cerrada" : "abierta"}">${abierta ? "Cerrar" : "Reabrir"}</button>
-      <button class="btn btn-peligro btn-sm" data-borrar="${v.id}" aria-label="Eliminar ${esc(v.cargo)}">Eliminar</button>
+      <button class="btn btn-peligro btn-sm" data-borrar="${v.id}" aria-label="Eliminar ${esc(v.cargo)}">Eliminar</button>` : ""}
     </footer>
   </article>`;
 }
@@ -75,9 +75,16 @@ function pintarLista() {
     const visibles = vacantes.filter((v) => filtro === "todas" || v.estado === filtro);
     $("#lista-vacantes").innerHTML = visibles.length
         ? visibles.map(tarjetaVacante).join("")
-        : vacio("△", "No hay cargos aquí", "Crea un cargo con su área, su líder y la matriz de habilidades.");
+        : esAdmin
+            ? vacio("△", "No hay cargos aquí", "Crea un cargo con su área, su líder y la matriz de habilidades.")
+            : vacio("△", "No hay cargos aquí", "Aún no hay cargos en tu cadena de mando.");
 }
 async function cargar() {
+    // Un líder solo consulta sus cargos: el editor (líderes y perfiles) es del administrador.
+    if (!esAdmin) {
+        vacantes = await api.get("/api/vacantes");
+        return pintarLista();
+    }
     [vacantes, lideres, perfiles] = await Promise.all([
         api.get("/api/vacantes"),
         api.get("/api/lideres"),
@@ -439,10 +446,12 @@ const refrescarPerfil = iniciarDropzone($("#zona-perfil"), inputPerfil, (f) => {
     if (f)
         subirPerfil(f);
 });
-$("#btn-nueva-vacante").addEventListener("click", () => abrir());
+$("#btn-nueva-vacante")?.addEventListener("click", () => abrir());
 cargar()
     .then(async () => {
     const q = new URLSearchParams(location.search);
+    if (!esAdmin)
+        return;
     if (q.has("nueva"))
         await abrir(undefined, false, q.get("perfil") ?? "");
     if (q.get("editar"))

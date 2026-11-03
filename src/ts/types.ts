@@ -135,6 +135,25 @@ export interface Lider extends DatosNatales {
   jefe_nombre?: string | null;
 }
 
+export type Rol = "admin" | "lider";
+
+/** Quién puede entrar a AGATA (con su cuenta Google) y qué ve. */
+export interface Usuario {
+  id: number;
+  email: string;
+  nombre: string | null;
+  rol: Rol;
+  /** Ficha de líder ligada: define la cadena de mando que ve. */
+  lider_id: number | null;
+  lider_nombre: string | null;
+  lider_cargo: string | null;
+  ultimo_ingreso: string | null;
+  creado: string;
+  /** Administrador por configuración (AGATA_ADMINS): no se puede quitar desde aquí. */
+  fijo: boolean;
+  yo: boolean;
+}
+
 export interface JefeSugerido {
   perfil: string;
   superior: string;

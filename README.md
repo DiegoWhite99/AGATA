@@ -33,6 +33,29 @@ repositorio (los perfiles de cargo traen datos de personas): copia ahí los arch
 Para cargar datos de demostración en una base vacía: `.venv/bin/python seed.py`. Si la base ya tiene
 registros, el script se niega a borrarlos (solo lo hace con `--forzar`).
 
+### Inicio de sesión y permisos
+
+AGATA usa **Firebase Authentication con cuentas Google** y no guarda contraseñas. Quién entra lo decide la sección
+**Usuarios**:
+
+- **Administrador:** gestiona todo (empresa, perfiles, líderes, cargos, postulantes y usuarios). Los correos de
+  `AGATA_ADMINS` siempre lo son; así entra el primero.
+- **Líder:** ve los cargos de su cadena de mando (los suyos y los de quienes le reportan), decide sobre sus
+  postulantes, puede reconsultar al oráculo y redirigir talento. Edita su propia ficha, pero no a quién reporta.
+- **Postulante:** no inicia sesión. La postulación (`/postular/<id>`) es pública y al final solo muestra una
+  confirmación, sin el puntaje.
+
+El login necesita en `.env` `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID` y `AGATA_SECRET_KEY`. La clave la generas tú
+(ver `.env.example`). Para trabajar en tu computador sin login, pon `AGATA_SIN_LOGIN=1` y arranca con
+`python app.py`: entras como administrador. Detrás de un servidor WSGI ese modo no existe.
+
+### Producción gratis (PythonAnywhere + Firebase)
+
+La guía paso a paso está en [`docs/despliegue.md`](docs/despliegue.md). AGATA corre en una cuenta gratuita de
+PythonAnywhere, con su base SQLite y las hojas de vida en disco. El login usa Firebase Authentication en el plan
+gratuito Spark. Cuesta US$0 y no pide tarjeta. Producción arranca con la base vacía: `agata.db` y `uploads/` no
+están en git y nunca salen de tu computador.
+
 ### Agente de IA (Groq)
 
 La clave va en el archivo `.env` (no se sube a git; parte de `.env.example`):
@@ -151,7 +174,8 @@ La carta astral se calcula en `astro.py` sin librerías externas (Meeus y elemen
 ## Estructura
 
 ```
-app.py          Flask: páginas y API REST
+app.py          Flask: páginas y API REST (cada ruta nace solo para administradores)
+acceso.py       Inicio de sesión (Firebase, cuentas Google), roles y cadena de mando visible
 oraculo.py      Agente de IA (Groq): lectura del CV, ajuste con el líder y dictamen
 evaluador.py    Lectura del CV y cálculo del match
 enlaces.py      Trabajo en línea: detecta y lee GitHub, portafolio y repositorio (LinkedIn solo como enlace)
@@ -160,7 +184,8 @@ perfil_cargo.py Lectura general de perfiles en PDF, Word, TXT, CSV o Excel libre
 perfiles/       Perfiles de cargo (fuente de todo cargo nuevo)
 astro.py        Carta astral, lo que dicta cada carta, sinastría y manejo de conflictos
 db.py           SQLite (con migraciones de columnas)
-seed.py         Datos de demostración (opcional)
+seed.py         Datos de demostración (opcional; nunca en producción)
+docs/           Guía de despliegue gratis (PythonAnywhere + Firebase)
 ciudades.py     Ciudades con coordenadas y huso horario
 templates/      HTML (Jinja)
 src/ts/         TypeScript (páginas, menú animado, radar, rueda zodiacal, corona de laurel)

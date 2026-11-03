@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block titulo %}Usuarios{% endblock %}
+{% block contenido %}
+<header class="pagina-cab">
+  <div>
+    <p class="eyebrow">Usuarios y permisos</p>
+    <h1>Quién entra a AGATA</h1>
+    <p class="lead">Cada persona entra con su cuenta Google. El administrador gestiona todo; cada líder ve los cargos
+      de su cadena de mando (los suyos y los de quienes le reportan) y decide sobre sus postulantes.</p>
+  </div>
+  <button class="btn" id="btn-nuevo-usuario">+ Dar acceso</button>
+</header>
+
+<section class="tarjeta">
+  <div id="lista-usuarios"><p class="cargando">Cargando usuarios…</p></div>
+</section>
+
+<dialog id="dlg-usuario" class="dialogo" aria-labelledby="dlg-usuario-titulo">
+  <form id="form-usuario" novalidate>
+    <header class="dialogo-cab">
+      <h2 id="dlg-usuario-titulo">Dar acceso</h2>
+      <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">✕</button>
+    </header>
+    <div class="dialogo-cuerpo">
+      <div class="grid-2">
+        <label class="campo"><span>Correo de Google <b class="req">*</b></span>
+          <input name="email" type="email" autocomplete="off" placeholder="nombre@cun.edu.co" required>
+          <small class="error" data-error="email" hidden></small></label>
+        <label class="campo"><span>Nombre</span><input name="nombre" autocomplete="off"
+          placeholder="Se toma de Google al entrar"></label>
+        <div class="campo"><label for="usuario-rol">Rol <b class="req">*</b></label>
+          <select name="rol" id="usuario-rol">
+            <option value="lider">Líder · ve su cadena de mando</option>
+            <option value="admin">Administrador · gestiona todo</option>
+          </select>
+          <small class="error" data-error="rol" hidden></small></div>
+        <div class="campo" id="campo-lider"><label for="usuario-lider">Su ficha de líder <b class="req">*</b></label>
+          <select name="lider_id" id="usuario-lider"></select>
+          <small class="error" data-error="lider_id" hidden></small></div>
+      </div>
+      <p class="ayuda" id="usuario-alcance"></p>
+    </div>
+    <footer class="dialogo-pie">
+      <button type="button" class="btn btn-sec" data-cerrar>Cancelar</button>
+      <button type="submit" class="btn">Guardar</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/usuarios.js') }}"></script>{% endblock %}
