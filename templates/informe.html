@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block titulo %}Informe del postulante{% endblock %}
+{% block contenido %}
+<div id="informe" data-id="{{ candidato_id }}">
+  <p class="cargando">Generando informe…</p>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/informe.js') }}"></script>{% endblock %}

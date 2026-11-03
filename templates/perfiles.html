@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import zona_cv %}
+{% block titulo %}Perfiles de cargo{% endblock %}
+{% block contenido %}
+<header class="pagina-cab">
+  <div>
+    <p class="eyebrow">Perfiles de cargo</p>
+    <h1>Perfiles</h1>
+    <p class="lead">Cada cargo nuevo nace de uno de estos perfiles: su misión, sus responsabilidades, el perfil del
+      candidato y sus competencias llenan el cargo y guían la lectura de la hoja de vida.</p>
+  </div>
+</header>
+
+<section class="tarjeta subir-perfil">
+  <div>
+    <h2>Agregar un perfil</h2>
+    <p class="ayuda">Sube el formato «Descripción del rol y responsabilidades» en Excel, o un manual de funciones en PDF,
+      Word o TXT. Si el archivo ya está en Perfiles, no se duplica.</p>
+    <p class="plantillas">¿No tienes el formato? Descarga la plantilla de AGATA:
+      <a href="/api/perfiles/plantilla.xlsx">Excel</a> · <a href="/api/perfiles/plantilla.csv">CSV</a></p>
+  </div>
+  {{ zona_cv("zona-subir-perfil", "Arrastra aquí el perfil", "Excel, CSV, PDF, Word o TXT · máx. 5 MB",
+             compacta=True, nombre="perfil", acepta=".xlsx,.csv,.pdf,.docx,.txt") }}
+  <div id="resultado-subida" class="resultado-archivo" hidden></div>
+</section>
+
+<div class="barra-filtro">
+  <label class="campo buscador"><span class="sr">Buscar perfil</span>
+    <input type="search" id="buscar-perfil" placeholder="Buscar por cargo, división o competencia…"></label>
+  <p class="meta" id="resumen-perfiles" aria-live="polite"></p>
+</div>
+<div id="lista-perfiles"><p class="cargando">Leyendo los perfiles…</p></div>
+
+<dialog id="dlg-perfil" class="dialogo dialogo-ancho" aria-labelledby="dlg-perfil-titulo">
+  <header class="dialogo-cab">
+    <div><p class="eyebrow" id="dlg-perfil-eyebrow"></p><h2 id="dlg-perfil-titulo">Perfil</h2></div>
+    <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">✕</button>
+  </header>
+  <div class="dialogo-cuerpo" id="perfil-cuerpo"></div>
+  <footer class="dialogo-pie" id="perfil-pie"></footer>
+</dialog>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/perfiles.js') }}"></script>{% endblock %}

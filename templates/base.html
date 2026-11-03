@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block titulo %}Oráculo de selección{% endblock %} · AGATA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 40'><rect width='44' height='40' fill='%230b0810'/><path d='M22 3 L41 37 H3 Z' fill='none' stroke='%23d9b26a' stroke-width='2.4'/><path d='M12 27 Q22 17 32 27 Q22 35 12 27 Z' fill='none' stroke='%23d9b26a' stroke-width='2'/><circle cx='22' cy='27' r='3.4' fill='%23f2913f'/></svg>">
+</head>
+<body>
+  <div class="cielo" aria-hidden="true"></div>
+  <div class="vapores" aria-hidden="true"><span></span><span></span><span></span></div>
+  <div class="columna columna-izq" aria-hidden="true"></div>
+  <div class="columna columna-der" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="logo" href="/" aria-label="AGATA, ir al panel">
+      <svg class="logo-ojo" viewBox="0 0 44 40" aria-hidden="true">
+        <path class="logo-delta" d="M22 2 L42 38 H2 Z"/>
+        <g class="logo-parpado"><path d="M11 27 Q22 16 33 27 Q22 36 11 27 Z"/><circle cx="22" cy="27" r="3.4"/></g>
+      </svg>
+      <span class="logo-texto">AGATA<small>Oráculo de selección</small></span>
+    </a>
+    <nav class="nav" aria-label="Principal">
+      <a href="/" style="--i:0" {% if pagina == 'panel' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">☉&#xFE0E;</span><span>Panel</span></a>
+      <a href="/empresa" style="--i:1" {% if pagina == 'empresa' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">♁&#xFE0E;</span><span>Empresa</span></a>
+      <a href="/lideres" style="--i:2" {% if pagina == 'lideres' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">♃&#xFE0E;</span><span>Líderes</span></a>
+      <a href="/perfiles" style="--i:3" {% if pagina == 'perfiles' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">♄&#xFE0E;</span><span>Perfiles</span></a>
+      <a href="/vacantes" style="--i:4" {% if pagina == 'vacantes' %}aria-current="page"{% endif %}>
+        <span class="nav-glifo" aria-hidden="true">△</span><span>Cargos y vacantes</span></a>
+    </nav>
+  </header>
+
+  <main class="contenedor">
+    {% block contenido %}{% endblock %}
+  </main>
+
+  <footer class="pie">
+    <div class="greca" aria-hidden="true"></div>
+    <p class="inscripcion" lang="grc">ΓΝΩΘΙ ΣΕΑΥΤΟΝ</p>
+    <p><em>Conócete a ti mismo</em> · Match ≥ 80% · En decisión 60–79% · Descartado &lt; 60%</p>
+  </footer>
+  <div id="toasts" aria-live="polite"></div>
+  <script type="module" src="{{ url_for('static', filename='js/nav.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

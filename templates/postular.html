@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campos_natales, zona_cv %}
+{% block titulo %}Postulación{% endblock %}
+{% block contenido %}
+<div id="postular" data-id="{{ vacante_id }}">
+  <header class="pagina-cab pagina-cab-centro">
+    <div>
+      <p class="eyebrow">Postulación</p>
+      <h1 id="post-cargo">Cargando vacante…</h1>
+      <p class="lead" id="post-sub"></p>
+    </div>
+  </header>
+
+  <ol class="pasos" id="pasos" aria-label="Pasos de la postulación">
+    <li data-paso="0">Datos</li>
+    <li data-paso="1">Tus astros</li>
+    <li data-paso="2">Tu carta</li>
+    <li data-paso="3">Hoja de vida</li>
+    <li data-paso="4">Enviar</li>
+  </ol>
+
+  <form id="form-post" class="tarjeta wizard" novalidate>
+    <section class="paso" data-paso="0">
+      <h2>Tus datos</h2>
+      <details class="vacante-desc" id="post-desc"><summary>Ver descripción del cargo</summary><p></p>
+        <dl class="perfil-datos perfil-datos-ancho" id="post-requisitos" hidden></dl></details>
+      <div class="grid-2">
+        <label class="campo"><span>Nombre completo <b class="req">*</b></span><input name="nombre" autocomplete="name" required>
+          <small class="error" data-error="nombre" hidden></small></label>
+        <label class="campo"><span>Correo <b class="req">*</b></span><input name="email" type="email" autocomplete="email" required>
+          <small class="error" data-error="email" hidden></small></label>
+        <label class="campo"><span>Teléfono</span><input name="telefono" type="tel" autocomplete="tel"></label>
+      </div>
+    </section>
+
+    <section class="paso" data-paso="1" hidden>
+      <h2>Registro de tus astros</h2>
+      <p class="ayuda">Con tu fecha, hora y lugar de nacimiento trazamos tu carta astral: el Sol, la Luna, los planetas
+        y tu ascendente. Con ella se mide la sinastría con el líder del cargo y con la empresa.</p>
+      {{ campos_natales(obligatorio=True) }}
+    </section>
+
+    <section class="paso" data-paso="2" hidden>
+      <h2>Lo que dicta tu carta</h2>
+      <p class="ayuda">Así te trazan los astros. Esta carta es la que se cruzará con la del líder y la de la empresa.</p>
+      <div id="tu-carta"><p class="cargando">Trazando tu carta…</p></div>
+    </section>
+
+    <section class="paso" data-paso="3" hidden>
+      <h2>Hoja de vida</h2>
+      <p class="ayuda">El oráculo IA la leerá completa para encontrar evidencia de cada habilidad del cargo.</p>
+      {{ zona_cv("dropzone", "Arrastra tu hoja de vida aquí", "o haz clic para buscarla · PDF, DOCX o TXT · máx. 5 MB") }}
+      <small class="error" data-error="cv" hidden></small>
+    </section>
+
+    <section class="paso" data-paso="4" hidden>
+      <h2>Revisa y envía</h2>
+      <div id="resumen"></div>
+    </section>
+
+    <footer class="wizard-pie">
+      <button type="button" class="btn btn-sec" id="btn-atras" hidden>← Atrás</button>
+      <span class="wizard-progreso" id="wizard-progreso"></span>
+      <button type="button" class="btn" id="btn-siguiente">Siguiente →</button>
+      <button type="submit" class="btn btn-oro" id="btn-enviar" hidden>✦ Consultar al oráculo</button>
+    </footer>
+  </form>
+
+  <div class="calculando" id="calculando" hidden>
+    <div class="tripode" aria-hidden="true">
+      <span class="humo"></span><span class="humo"></span><span class="humo"></span>
+      <span class="llama"></span>
+      <svg viewBox="0 0 150 130" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round">
+        <path d="M25 30 H125 Q120 58 75 62 Q30 58 25 30 Z"/>
+        <path d="M45 56 L28 126 M75 62 V126 M105 56 L122 126"/>
+        <path d="M36 96 H114" stroke-width="2"/>
+      </svg>
+    </div>
+    <p class="calculando-titulo">La Pitia consulta al oráculo…</p>
+    <p>Leyendo tu hoja de vida, trazando tu carta astral y midiendo el match con el cargo.</p>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/postular.js') }}"></script>{% endblock %}

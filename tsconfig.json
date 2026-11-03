@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ES2020",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "rootDir": "src/ts",
+    "outDir": "static/js",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "sourceMap": false,
+    "removeComments": false
+  },
+  "include": ["src/ts/**/*.ts"]
+}

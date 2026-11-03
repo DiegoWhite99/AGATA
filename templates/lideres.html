@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campos_natales, zona_cv %}
+{% block titulo %}Líderes{% endblock %}
+{% block contenido %}
+<header class="pagina-cab">
+  <div>
+    <p class="eyebrow">Líderes y jefes</p>
+    <h1>Quién guía cada cargo</h1>
+    <p class="lead">El líder describe en detalle su área, su forma de liderar y lo que espera del nuevo integrante,
+      y entrega su hoja de vida. El oráculo usa todo esto, junto con su carta astral, para medir la sinergia con cada postulante.</p>
+  </div>
+  <button class="btn" id="btn-nuevo-lider">+ Registrar líder</button>
+</header>
+
+<section id="lista-lideres" class="grid-cards"></section>
+
+<dialog id="dlg-lider" class="dialogo" aria-labelledby="dlg-lider-titulo">
+  <form id="form-lider" novalidate>
+    <header class="dialogo-cab">
+      <h2 id="dlg-lider-titulo">Registrar líder</h2>
+      <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">✕</button>
+    </header>
+    <div class="dialogo-cuerpo">
+      <fieldset>
+        <legend>Datos del líder</legend>
+        <div class="grid-2">
+          <label class="campo"><span>Nombre completo <b class="req">*</b></span><input name="nombre" autofocus required>
+            <small class="error" data-error="nombre" hidden></small></label>
+          <label class="campo"><span>Correo</span><input name="email" type="email"></label>
+          <label class="campo"><span>Cargo del líder <b class="req">*</b></span><input name="cargo" placeholder="Ej. Líder de Robótica" required>
+            <small class="error" data-error="cargo" hidden></small></label>
+          <label class="campo"><span>Área <b class="req">*</b></span><input name="area" placeholder="Ej. Robótica e Innovación" required>
+            <small class="error" data-error="area" hidden></small></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Hoja de vida del líder</legend>
+        <p class="ayuda">El oráculo IA la lee para entender la experiencia del líder y compararla con la de cada postulante.</p>
+        {{ zona_cv("zona-cv-lider", "Arrastra aquí la hoja de vida del líder", "o haz clic para buscarla · PDF, DOCX o TXT · máx. 5 MB", compacta=True) }}
+        <p class="cv-actual" id="cv-actual" hidden></p>
+        <small class="error" data-error="cv" hidden></small>
+      </fieldset>
+
+      <fieldset>
+        <legend>Descripción detallada</legend>
+        <p class="ayuda">Mientras más detalle, mejor el match. El sistema exige un mínimo para cada bloque.</p>
+        <div id="medidor-detalle" class="medidor" aria-live="polite"></div>
+
+        <label class="campo">
+          <span>Descripción del área y del rol del líder <b class="req">*</b></span>
+          <textarea name="descripcion" rows="6" data-min="{{ min_desc }}" required></textarea>
+          <ul class="guia">
+            <li>¿Qué hace el área y qué productos o proyectos tiene?</li>
+            <li>¿Con qué tecnologías, herramientas y metodologías trabajan?</li>
+            <li>¿Cuáles son los retos actuales del equipo?</li>
+          </ul>
+          <span class="contador" data-contador="descripcion"></span>
+          <small class="error" data-error="descripcion" hidden></small>
+        </label>
+
+        <label class="campo">
+          <span>Estilo de liderazgo <b class="req">*</b></span>
+          <textarea name="estilo_liderazgo" rows="4" data-min="{{ min_estilo }}" required
+                    placeholder="Cómo delegas, cómo das retroalimentación, cada cuánto se reúne el equipo…"></textarea>
+          <span class="contador" data-contador="estilo_liderazgo"></span>
+          <small class="error" data-error="estilo_liderazgo" hidden></small>
+        </label>
+
+        <label class="campo">
+          <span>Qué espera del nuevo integrante <b class="req">*</b></span>
+          <textarea name="expectativas" rows="4" data-min="{{ min_expect }}" required
+                    placeholder="Responsabilidades, actitudes que valoras, qué debería lograr en los primeros 3 meses…"></textarea>
+          <span class="contador" data-contador="expectativas"></span>
+          <small class="error" data-error="expectativas" hidden></small>
+        </label>
+
+        <label class="campo"><span>Composición del equipo</span>
+          <input name="equipo" placeholder="Ej. 6 personas: 3 ingenieros, 1 electrónico, 2 practicantes"></label>
+      </fieldset>
+
+      <fieldset>
+        <legend>Carta astral del líder <em class="opcional">(recomendado)</em></legend>
+        <p class="ayuda">Sin estos datos no se puede calcular la sinergia astral con los postulantes.</p>
+        {{ campos_natales(obligatorio=False) }}
+      </fieldset>
+    </div>
+    <footer class="dialogo-pie">
+      <button type="button" class="btn btn-sec" data-cerrar>Cancelar</button>
+      <button type="submit" class="btn">Guardar líder</button>
+    </footer>
+  </form>
+</dialog>
+<dialog id="dlg-carta" class="dialogo" aria-labelledby="dlg-carta-titulo">
+  <form method="dialog">
+    <header class="dialogo-cab">
+      <h2 id="dlg-carta-titulo">Carta del líder</h2>
+      <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">✕</button>
+    </header>
+    <div class="dialogo-cuerpo" id="carta-cuerpo"></div>
+    <footer class="dialogo-pie">
+      <button type="submit" class="btn">Cerrar</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/lideres.js') }}"></script>{% endblock %}

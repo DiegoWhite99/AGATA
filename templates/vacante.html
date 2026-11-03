@@ -1,0 +1,8 @@
+{% extends "base.html" %}
+{% block titulo %}Detalle del cargo{% endblock %}
+{% block contenido %}
+<div id="vacante" data-id="{{ vacante_id }}">
+  <p class="cargando">Cargando cargo…</p>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/vacante.js') }}"></script>{% endblock %}

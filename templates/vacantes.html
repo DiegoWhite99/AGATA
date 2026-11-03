@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_macros.html" import zona_cv %}
+{% block titulo %}Cargos y vacantes{% endblock %}
+{% block contenido %}
+<header class="pagina-cab">
+  <div>
+    <p class="eyebrow">Cargos y vacantes</p>
+    <h1>Define el cargo, el área y su líder</h1>
+    <p class="lead">Cada cargo nace de su perfil en Perfiles y tiene su líder, su matriz de
+      habilidades y el peso de cada parte del match: la sinastría con el líder, con la empresa, el elemento afín y la hoja de vida.</p>
+  </div>
+  <button class="btn" id="btn-nueva-vacante">+ Nuevo cargo</button>
+</header>
+
+<div class="filtros" role="tablist" aria-label="Filtrar vacantes">
+  <button class="filtro" role="tab" aria-selected="true" data-filtro="todas">Todas</button>
+  <button class="filtro" role="tab" aria-selected="false" data-filtro="abierta">Abiertas</button>
+  <button class="filtro" role="tab" aria-selected="false" data-filtro="cerrada">Cerradas</button>
+</div>
+<section id="lista-vacantes" class="grid-cards"></section>
+
+<dialog id="dlg-vacante" class="dialogo dialogo-ancho" aria-labelledby="dlg-vacante-titulo">
+  <form id="form-vacante" novalidate>
+    <header class="dialogo-cab">
+      <h2 id="dlg-vacante-titulo">Nuevo cargo</h2>
+      <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">✕</button>
+    </header>
+    <div class="dialogo-cuerpo">
+      <fieldset class="desde-archivo">
+        <legend>✦ Perfil del cargo</legend>
+        <p class="ayuda">Todo cargo se liga a su perfil institucional. Al elegirlo, el formulario se llena con su misión,
+          responsabilidades, competencias y el líder que indica el perfil. Revisa los datos antes de guardar.</p>
+        <div class="perfil-elegir">
+          <label class="campo"><span>Perfil <b class="req" data-req-perfil>*</b></span>
+            <select name="perfil_id" autofocus><option value="">Cargando perfiles…</option></select>
+            <small class="error" data-error="perfil_id" hidden></small></label>
+          <a class="btn btn-sec btn-sm" id="ver-perfiles" href="/perfiles" target="_blank" rel="noopener">Ver perfiles ↗</a>
+        </div>
+        <details class="subir-otro">
+          <summary>¿El cargo no está en Perfiles? Agrega su perfil</summary>
+          {{ zona_cv("zona-perfil", "Arrastra aquí el perfil del cargo", "Excel, CSV, PDF, Word o TXT · queda guardado en Perfiles",
+                     compacta=True, nombre="perfil", acepta=".xlsx,.csv,.pdf,.docx,.txt") }}
+          <p class="plantillas">¿Sin formato? Descarga la plantilla:
+            <a href="/api/perfiles/plantilla.xlsx">Excel</a> · <a href="/api/perfiles/plantilla.csv">CSV</a></p>
+        </details>
+        <div id="resultado-archivo" class="resultado-archivo" hidden></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>1 · Cargo, área y líder</legend>
+        <div class="grid-3">
+          <label class="campo"><span>Cargo <b class="req">*</b></span>
+            <input name="cargo" placeholder="Ej. Ingeniero(a) de Robótica" required>
+            <small class="error" data-error="cargo" hidden></small></label>
+          <label class="campo"><span>Área <b class="req">*</b></span>
+            <input name="area" placeholder="Ej. Robótica e Innovación" required>
+            <small class="error" data-error="area" hidden></small></label>
+          <label class="campo"><span>Líder o jefe <b class="req">*</b></span>
+            <select name="lider_id" required></select>
+            <small class="error" data-error="lider_id" hidden></small></label>
+        </div>
+        <div id="lider-preview" class="lider-preview" hidden></div>
+        <label class="campo">
+          <span>Descripción del cargo <b class="req">*</b></span>
+          <textarea name="descripcion" rows="5" data-min="{{ min_desc }}"
+                    placeholder="Responsabilidades, proyectos, herramientas, con quién trabaja, modalidad…"></textarea>
+          <span class="contador" data-contador="descripcion"></span>
+          <small class="error" data-error="descripcion" hidden></small>
+        </label>
+      </fieldset>
+
+      <fieldset>
+        <legend>2 · Matriz de habilidades</legend>
+        <p class="ayuda"><strong>Peso</strong>: qué tanto importa (1–5). <strong>Nivel</strong>: nivel requerido (1–5).
+          <strong>Palabras clave</strong>: lo que se busca en la hoja de vida, separado por comas.</p>
+        <div class="habilidades-editor">
+          <div id="habilidades"></div>
+          <div class="preview-radar" id="preview-radar" aria-label="Vista previa del perfil requerido"></div>
+        </div>
+        <button type="button" class="btn btn-sec btn-sm" id="btn-add-hab">+ Agregar habilidad</button>
+        <small class="error" data-error="habilidades" hidden></small>
+      </fieldset>
+
+      <fieldset>
+        <legend>3 · El match astral</legend>
+        <p class="ayuda">El match se centra en la sinastría: cómo se relaciona la carta del postulante con la del líder y la de
+          la empresa. Ajusta cuánto pesa cada parte.</p>
+        <h3 class="subtitulo">Cartas astrales</h3>
+        <div class="pesos">
+          <label class="campo"><span>Sinastría con el líder <output data-out="peso_lider"></output></span>
+            <input type="range" name="peso_lider" min="0" max="100" step="5" value="35"></label>
+          <label class="campo"><span>Sinastría con la empresa <output data-out="peso_empresa"></output></span>
+            <input type="range" name="peso_empresa" min="0" max="100" step="5" value="25"></label>
+          <label class="campo"><span>Elemento afín al cargo <output data-out="peso_elemento"></output></span>
+            <input type="range" name="peso_elemento" min="0" max="100" step="5" value="10"></label>
+          <label class="campo"><span>Manejo de conflictos con el líder <output data-out="peso_conflicto"></output></span>
+            <input type="range" name="peso_conflicto" min="0" max="100" step="5" value="10"></label>
+        </div>
+        <h3 class="subtitulo">Perfil</h3>
+        <div class="pesos">
+          <label class="campo"><span>Hoja de vida <output data-out="peso_cv"></output></span>
+            <input type="range" name="peso_cv" min="0" max="100" step="5" value="20"></label>
+          <label class="campo"><span>Ajuste con el líder (IA) <output data-out="peso_ia"></output></span>
+            <input type="range" name="peso_ia" min="0" max="100" step="5" value="10"></label>
+        </div>
+        <div class="pesos-barra" id="pesos-barra" aria-hidden="true"></div>
+        <small class="error" data-error="pesos" hidden></small>
+        <label class="campo campo-medio"><span>Elemento afín al cargo</span>
+          <select name="elemento_afin">
+            <option value="">Ninguno</option>
+            <option value="Fuego">Fuego · impulso y acción</option>
+            <option value="Tierra">Tierra · método y constancia</option>
+            <option value="Aire">Aire · ideas y comunicación</option>
+            <option value="Agua">Agua · intuición y empatía</option>
+          </select>
+        </label>
+      </fieldset>
+    </div>
+    <footer class="dialogo-pie">
+      <button type="button" class="btn btn-sec" data-cerrar>Cancelar</button>
+      <button type="submit" class="btn">Guardar cargo</button>
+    </footer>
+  </form>
+</dialog>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/vacantes.js') }}"></script>{% endblock %}

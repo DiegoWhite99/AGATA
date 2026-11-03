@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import campos_natales %}
+{% block titulo %}Carta de la empresa{% endblock %}
+{% block contenido %}
+<header class="pagina-cab">
+  <div>
+    <p class="eyebrow">La empresa</p>
+    <h1>La carta astral de la empresa</h1>
+    <p class="lead">Una empresa también nace: su carta se traza con la fecha, la hora y el lugar de su fundación.
+      El oráculo mide la sinastría de cada postulante con ella, junto con la del líder.</p>
+  </div>
+</header>
+
+<div class="grid-2 empresa-grid">
+  <section class="tarjeta">
+    <form id="form-empresa" novalidate>
+      <fieldset>
+        <legend>Datos de la empresa</legend>
+        <div class="grid-2">
+          <label class="campo"><span>Nombre <b class="req">*</b></span><input name="nombre" required placeholder="Ej. Andes Robotics">
+            <small class="error" data-error="nombre" hidden></small></label>
+          <label class="campo"><span>Sector</span><input name="sector" placeholder="Ej. Educación, tecnología…"></label>
+        </div>
+        <label class="campo"><span>Misión</span><textarea name="mision" rows="2" placeholder="Para qué existe la empresa"></textarea></label>
+        <label class="campo"><span>Valores</span><textarea name="valores" rows="2" placeholder="Ej. Rigor, empatía, innovación…"></textarea></label>
+        <label class="campo"><span>Cultura y forma de trabajo</span><textarea name="cultura" rows="3" placeholder="Cómo se trabaja, cómo se decide, qué se celebra"></textarea></label>
+      </fieldset>
+      <fieldset>
+        <legend>Fundación</legend>
+        <p class="ayuda">Usa la fecha de constitución legal o de apertura. Si conoces la hora (por ejemplo, la de la firma
+          del acta), la carta incluye el ascendente.</p>
+        {{ campos_natales(obligatorio=True, que="fundación") }}
+      </fieldset>
+      <div class="acciones-wrap derecha">
+        <button type="submit" class="btn">✦ Trazar carta de la empresa</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="tarjeta" id="carta-empresa">
+    <p class="cargando">Cargando…</p>
+  </section>
+</div>
+
+<section class="tarjeta" id="atributos-empresa" hidden></section>
+<section class="tarjeta" id="lideres-empresa" hidden></section>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/empresa.js') }}"></script>{% endblock %}

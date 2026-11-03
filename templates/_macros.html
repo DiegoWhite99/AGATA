@@ -1,0 +1,48 @@
+{% macro campos_natales(obligatorio=False, que="nacimiento") %}
+<div class="natal">
+  <div class="grid-3">
+    <label class="campo">
+      <span>Fecha de {{ que }} {% if obligatorio %}<b class="req">*</b>{% endif %}</span>
+      <input type="date" name="fecha_nac" min="1900-01-01" max="2015-12-31" {% if obligatorio %}required{% endif %}>
+      <small class="error" data-error="fecha_nac" hidden></small>
+    </label>
+    <label class="campo">
+      <span>Hora de {{ que }} <em class="opcional">(para el ascendente)</em></span>
+      <input type="time" name="hora_nac">
+      <small class="error" data-error="hora_nac" hidden></small>
+    </label>
+    <label class="campo">
+      <span>Ciudad de {{ que }} {% if obligatorio %}<b class="req">*</b>{% endif %}</span>
+      <select name="ciudad"><option value="">Cargando…</option></select>
+      <small class="error" data-error="ciudad" hidden></small>
+    </label>
+  </div>
+  <div class="coords grid-3" hidden>
+    <label class="campo"><span>Nombre de la ciudad</span><input name="ciudad_otra" placeholder="Ej. Sogamoso, Colombia"></label>
+    <label class="campo"><span>Latitud</span><input name="lat" type="number" step="0.001" min="-66" max="66" placeholder="4.711"></label>
+    <label class="campo"><span>Longitud (oeste negativa)</span><input name="lon" type="number" step="0.001" min="-180" max="180" placeholder="-74.072"></label>
+  </div>
+  <div class="natal-pie">
+    <label class="campo campo-mini">
+      <span>Huso horario (UTC)</span>
+      <input name="utc" type="number" step="0.5" min="-12" max="14" placeholder="-5">
+    </label>
+    <p class="preview-signo" aria-live="polite"></p>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro zona_cv(id, titulo, texto, compacta=False, nombre="cv", acepta=".pdf,.docx,.txt") %}
+<label class="dropzone{% if compacta %} dropzone-compacta{% endif %}" id="{{ id }}">
+  <input type="file" name="{{ nombre }}" accept="{{ acepta }}" hidden>
+  <svg class="dropzone-icono" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 8h24a4 4 0 0 1 4 4v22"/>
+    <path d="M12 8a4 4 0 0 0-4 4v3h8v-3a4 4 0 0 0-4-4z"/>
+    <path d="M16 15v23a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4v-4H24v4a4 4 0 0 1-4 4"/>
+    <path d="M22 18h12M22 23h12M22 28h8" stroke-width="1.5"/>
+  </svg>
+  <strong>{{ titulo }}</strong>
+  <span>{{ texto }}</span>
+  <span class="dropzone-archivo"></span>
+</label>
+{% endmacro %}

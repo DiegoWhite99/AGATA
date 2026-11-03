@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block titulo %}Panel{% endblock %}
+{% block contenido %}
+<section class="hero">
+  <div>
+    <p class="eyebrow">Oráculo de selección</p>
+    <h1>Consulta al oráculo: el talento, el líder, la empresa y las estrellas</h1>
+    <p class="lead">La carta astral es la regla: cada postulante registra sus astros y el oráculo cruza su carta con
+      la del líder y la de la empresa (sinastría), lee su hoja de vida con IA y pronuncia el veredicto. Sin tests ni preguntas.</p>
+    <p class="ia-estado" id="ia-estado" hidden></p>
+  </div>
+  <div class="hero-lado">
+    <div class="rueda-fondo" id="rueda-fondo" aria-hidden="true"></div>
+    <div class="umbrales" aria-label="Reglas del veredicto">
+      <div class="umbral umbral-match"><span class="romano">I</span><strong>≥ 80%</strong><span>Match</span></div>
+      <div class="umbral umbral-decision"><span class="romano">II</span><strong>60–79%</strong><span>En decisión</span></div>
+      <div class="umbral umbral-descartado"><span class="romano">III</span><strong>&lt; 60%</strong><span>Descartado</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="tarjeta" id="ritual" hidden>
+  <h2>El ritual para comenzar</h2>
+  <ol class="ritual" id="ritual-pasos"></ol>
+</section>
+
+<section id="kpis" class="kpis" aria-label="Indicadores"></section>
+
+<div class="grid-2 panel-cuerpo">
+  <section class="tarjeta">
+    <header class="tarjeta-cab">
+      <h2>Vacantes abiertas</h2>
+      <a class="btn btn-sec btn-sm" href="/vacantes?nueva=1">+ Nuevo cargo</a>
+    </header>
+    <div id="vacantes-abiertas"></div>
+  </section>
+  <section class="tarjeta">
+    <header class="tarjeta-cab"><h2>Postulaciones recientes</h2></header>
+    <div id="recientes"></div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/panel.js') }}"></script>{% endblock %}
