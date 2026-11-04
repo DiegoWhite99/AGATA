@@ -1,8 +1,16 @@
 # ✦ AGATA · Oráculo de selección
 
-Plataforma web de match laboral centrada en la **carta astral**. Cruza la carta del postulante con la del
-**líder** y la de la **empresa** (sinastría), lee la hoja de vida con un **agente de IA (Groq)** y entrega un
-informe con puntaje.
+**Inteligencia artificial y análisis de afinidad astral aplicado al talento humano.**
+
+Una experiencia innovadora que integra inteligencia artificial, interpretación de perfiles astrales y análisis de
+información profesional para explorar las conexiones entre el **candidato**, el **líder** y la **organización**.
+
+A partir de los datos de nacimiento, el sistema realiza una interpretación de las configuraciones astrales y un
+análisis de sinastría entre los participantes. Complementariamente, procesa la hoja de vida mediante inteligencia
+artificial (**Groq**) para identificar fortalezas, trayectoria profesional, características individuales y posibles
+afinidades.
+
+Tres dimensiones de análisis: **talento, liderazgo y cultura organizacional.**
 
 **Nadie queda descartado.** El puntaje no clasifica: ordena a los postulantes de cada vacante (ranking) y se
 lee en dos partes, **perfil profesional** (hoja de vida + IA) y **afinidad astral** (líder, empresa, elemento y
