@@ -7,7 +7,7 @@
     <p class="eyebrow">Líderes y jefes</p>
     <h1>Quién guía cada cargo</h1>
     <p class="lead">El líder describe en detalle su área, su forma de liderar y lo que espera del nuevo integrante,
-      y entrega su hoja de vida. El oráculo usa todo esto, junto con su carta astral, para medir la sinergia con cada postulante.</p>
+      y entrega su hoja de vida. AGATA usa todo esto, junto con su carta astral, para medir la sinergia con cada postulante.</p>
   </div>
   {% if usuario.rol == 'admin' %}<button class="btn" id="btn-nuevo-lider">+ Registrar líder</button>{% endif %}
 </header>
@@ -40,7 +40,7 @@
 
       <fieldset>
         <legend>Hoja de vida del líder</legend>
-        <p class="ayuda">El oráculo IA la lee para entender la experiencia del líder y compararla con la de cada postulante.</p>
+        <p class="ayuda">La IA la lee para entender la experiencia del líder y compararla con la de cada postulante.</p>
         {{ zona_cv("zona-cv-lider", "Arrastra aquí la hoja de vida del líder", "o haz clic para buscarla · PDF, DOCX o TXT · máx. 5 MB", compacta=True) }}
         <p class="cv-actual" id="cv-actual" hidden></p>
         <small class="error" data-error="cv" hidden></small>
@@ -122,4 +122,4 @@
   </form>
 </dialog>
 {% endblock %}
-{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/lideres.js') }}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{{ recurso('js/pages/lideres.js') }}"></script>{% endblock %}

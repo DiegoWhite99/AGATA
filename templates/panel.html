@@ -3,7 +3,7 @@
 {% block contenido %}
 <section class="hero">
   <div>
-    <p class="eyebrow">Oráculo de selección</p>
+    <p class="eyebrow">Selección de talento</p>
     <h1>Inteligencia artificial y análisis de afinidad astral aplicado al talento humano</h1>
     <p class="lead">Una experiencia innovadora que integra inteligencia artificial, interpretación de perfiles astrales
       y análisis de información profesional para explorar las conexiones entre el candidato, el líder y la organización.</p>
@@ -16,10 +16,10 @@
   </div>
   <div class="hero-lado">
     <div class="rueda-fondo" id="rueda-fondo" aria-hidden="true"></div>
-    <div class="umbrales" aria-label="Cómo lee el oráculo">
+    <div class="umbrales" aria-label="Cómo lee AGATA">
       <div class="umbral"><span class="romano">I</span><strong>Ranking</strong><span>Nadie queda descartado</span></div>
       <div class="umbral"><span class="romano">II</span><strong>Dos lecturas</strong><span>Perfil profesional y afinidad astral</span></div>
-      <div class="umbral"><span class="romano">III</span><strong>El líder</strong><span>Decide quién avanza</span></div>
+      <div class="umbral"><span class="romano">III</span><strong>El líder y la dirección</strong><span>Deciden quién entra al equipo</span></div>
     </div>
   </div>
 </section>
@@ -27,6 +27,12 @@
 <section class="tarjeta" id="ritual" hidden>
   <h2>El ritual para comenzar</h2>
   <ol class="ritual" id="ritual-pasos"></ol>
+</section>
+
+<section class="tarjeta por-aprobar" id="por-aprobar" hidden>
+  <header class="tarjeta-cab"><div><p class="eyebrow">Aprobación de la dirección</p>
+    <h2>Esperan tu aprobación para entrar al equipo</h2></div></header>
+  <ul class="lista" id="por-aprobar-lista"></ul>
 </section>
 
 <section id="kpis" class="kpis" aria-label="Indicadores"></section>
@@ -45,4 +51,4 @@
   </section>
 </div>
 {% endblock %}
-{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/panel.js') }}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{{ recurso('js/pages/panel.js') }}"></script>{% endblock %}

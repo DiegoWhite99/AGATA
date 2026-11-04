@@ -31,7 +31,7 @@ CAR_POR_TOKEN = 6  # Groq midió ~6,5 caracteres por token en estas consultas; s
 
 log = logging.getLogger("agata.oraculo")
 
-SISTEMA = """Eres AGATA, un oráculo de selección que une astrología y reclutamiento. Interpretas la
+SISTEMA = """Eres AGATA, un sistema de selección de talento que une astrología y reclutamiento. Interpretas la
 sinastría (cómo se relacionan las cartas astrales) entre un postulante, su futuro líder y la empresa,
 y lees la hoja de vida con criterio de reclutador senior, de forma justa y basada en evidencia.
 
@@ -320,7 +320,7 @@ def consultar(vacante: dict, lider: dict | None, empresa: dict | None, candidato
             return {"error": _error_groq(err.code)}
         except Exception as err:  # red, timeout o JSON inválido
             log.warning("Fallo consultando a Groq: %s", err)
-            return {"error": "El oráculo IA no respondió a tiempo. Inténtalo de nuevo."}
+            return {"error": "La IA no respondió a tiempo. Inténtalo de nuevo."}
 
 
 def _limite_tpm() -> int:

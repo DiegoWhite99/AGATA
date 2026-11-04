@@ -1,4 +1,4 @@
-# ✦ AGATA · Oráculo de selección
+# ✦ AGATA · Selección de talento
 
 **Inteligencia artificial y análisis de afinidad astral aplicado al talento humano.**
 
@@ -49,7 +49,7 @@ AGATA usa **Firebase Authentication con cuentas Google** y no guarda contraseña
 - **Administrador:** gestiona todo (empresa, perfiles, líderes, cargos, postulantes y usuarios). Los correos de
   `AGATA_ADMINS` siempre lo son; así entra el primero.
 - **Líder:** ve los cargos de su cadena de mando (los suyos y los de quienes le reportan), decide sobre sus
-  postulantes, puede reconsultar al oráculo y redirigir talento. Edita su propia ficha, pero no a quién reporta.
+  postulantes, puede volver a consultar a la IA y redirigir talento. Edita su propia ficha, pero no a quién reporta.
 - **Postulante:** no inicia sesión. La postulación (`/postular/<id>`) es pública y al final solo muestra una
   confirmación, sin el puntaje.
 
@@ -97,7 +97,7 @@ npm run build      # o: npm run watch
    institucional «Descripción del rol y responsabilidades» (ASL-FOR-001) se lee sección por sección:
    identificación (división, rol estratégico/táctico/operativo, superior inmediato), misión, responsabilidades,
    toma de decisiones, relaciones, dimensión y perfil del candidato (formación, experiencia, conocimientos y
-   competencias técnicas y blandas). También acepta PDF, Word, TXT, CSV o Excel libre (los interpreta el oráculo IA
+   competencias técnicas y blandas). También acepta PDF, Word, TXT, CSV o Excel libre (los interpreta la IA
    o la lectura por tabla). Se pueden subir perfiles nuevos y un archivo idéntico a otro no se duplica. La lectura se
    guarda en la base y se renueva cuando el archivo cambia. Si dos perfiles de cargos distintos tienen el mismo texto
    en una sección (misión, formación, experiencia, conocimientos o competencias), se marca como copiado.
@@ -108,7 +108,7 @@ npm run build      # o: npm run watch
    de digitación) o con quien ocupa ese cargo según el perfil del superior. Si el superior no está registrado, o el
    líder asignado no es ese superior, se avisa. Los cargos creados antes de Perfiles pueden ligarse al editarlos.
    **Lo que se espera del nuevo integrante sale del perfil del cargo** (formación, experiencia, competencias y
-   conocimientos), no del texto general del líder; así lo ve la vacante y así lo usa el oráculo IA.
+   conocimientos), no del texto general del líder; así lo ve la vacante y así lo usa la IA.
    Plantilla para un perfil propio: `/api/perfiles/plantilla.xlsx` o `.csv`.
 5. **Postulación** (`/postular/<id>`): muestra los requisitos del perfil (formación, experiencia y
    conocimientos) y sigue con: datos → registro de los astros → **lo que dicta su carta** → hoja de vida y
@@ -121,14 +121,14 @@ npm run build      # o: npm run watch
    AGATA elige el más destacado de su GitHub (estrellas y forks en escala logarítmica, actividad reciente,
    documentación y relación con las habilidades del cargo). GitHub se lee con su API pública y el portafolio
    como página web. LinkedIn no permite que un programa lea sus perfiles: se guarda el enlace para el líder. En
-   los cargos técnicos, el oráculo IA pesa esa evidencia tanto o más que la hoja de vida. Desde el informe se
-   pueden agregar o corregir los enlaces, y **Reconsultar al oráculo** los vuelve a leer.
+   los cargos técnicos, la IA pesa esa evidencia tanto o más que la hoja de vida. Desde el informe se
+   pueden agregar o corregir los enlaces, y **Volver a consultar a la IA** los vuelve a leer.
 6. **Informe**: puesto en el ranking de la vacante, perfil profesional y afinidad astral, en qué destaca, las tres
    cartas, sinastría (rejilla de aspectos, radar por astro y lecturas), manejo de conflictos, lo que dictan las tres
-   cartas, dictamen del oráculo IA, hoja de vida (puntos a favor y lo que conviene explorar) y decisión del líder.
+   cartas, dictamen de la IA, hoja de vida (puntos a favor y lo que conviene explorar) y decisión del líder.
 
 **Requisitos excluyentes, alertas y redirección**: cada cargo puede tener requisitos innegociables, pero solo de
-título, experiencia y proyectos (licencias, libreta militar y otros documentos no suman ni restan). El oráculo IA
+título, experiencia y proyectos (licencias, libreta militar y otros documentos no suman ni restan). La IA
 los verifica (cumple, no cumple o por validar) y quien no cumple queda marcado y al final del ranking; el líder
 confirma. Las **alertas** avisan sin descartar: requisito no cumplido o por validar, baja afinidad con el cargo
 (perfil profesional bajo) y sinergia difícil con el líder. Si alguien encaja mejor en otra vacante abierta
@@ -150,6 +150,15 @@ del líder central: más cerca y más brillantes cuanto mayor es la sinastría, 
 otro líder lo pasa al centro. Es solo informativa: no cambia el puntaje de ningún postulante. Un líder ve solo a los de
 su cadena de mando.
 
+**Aprobación de la dirección**: la decisión tiene dos pasos que siguen la línea de mando. Primero el **líder** del cargo
+aprueba; luego, el **cargo de dirección** que encabeza su cadena de mando (directora, director, gerente, rector o
+decano) da la **aprobación final**, y con ella la persona **entra al equipo del líder**. Solo esa persona puede darla:
+un administrador no, por serlo. Al aprobar, AGATA pregunta si se cierra la vacante (un cargo puede tener varias
+plazas). Si el cargo es de la misma dirección, su aprobación como líder ya es la final. Quien ocupa la dirección ve en
+el **Panel** a quienes esperan su aprobación. Los integrantes aparecen en la ficha de su líder y en la **Red**, con una
+estrella, colgando de su líder. Una vez que la dirección decide, el líder no puede cambiar su decisión hasta que la
+dirección retire la suya.
+
 **Lo que dicta la carta**: cada carta (postulante, líder y empresa) fija sus reglas: elemento dominante,
 modalidad dominante y estilo ante el conflicto, más un rasgo por astro, por ejemplo "Comunicación: precisa,
 analítica y servicial (Mercurio en Virgo)". Nadie los confirma ni los responde: los dictan los astros.
@@ -169,7 +178,7 @@ y un consejo para cada uno.
 | Elemento afín al cargo | 10 | Presencia en la carta del elemento que pide el cargo |
 | Manejo de conflictos | 10 | Compatibilidad de estilos de conflicto con el líder + aspectos entre Marte, Luna, Mercurio, Sol y Saturno |
 | Hoja de vida | 20 | Lectura de la IA en la hoja de vida y el trabajo en línea, frente al nivel requerido y al perfil institucional del cargo. En las habilidades técnicas, las palabras clave (40 %) solo pueden subir la nota; las blandas no se buscan por palabras clave |
-| Ajuste con el líder (IA) | 10 | El oráculo compara el perfil con lo que espera el líder |
+| Ajuste con el líder (IA) | 10 | La IA compara el perfil con lo que espera el líder |
 
 **Habilidades técnicas y blandas**: cada habilidad del cargo es técnica o blanda (sale del perfil y se puede
 cambiar). Una hoja de vida centrada en proyectos rara vez escribe "trabajo en equipo" o "proactividad", así que la
@@ -209,5 +218,5 @@ docs/           Guía de despliegue gratis (PythonAnywhere + Firebase)
 ciudades.py     Ciudades con coordenadas y huso horario
 templates/      HTML (Jinja)
 src/ts/         TypeScript (páginas, menú animado, radar, rueda zodiacal, corona de laurel)
-static/         CSS (estilo oráculo de Delfos) y JS compilado
+static/         CSS (estilo griego clásico) y JS compilado
 ```

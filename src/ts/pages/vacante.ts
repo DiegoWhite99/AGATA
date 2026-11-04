@@ -38,7 +38,7 @@ function filaCandidato(c: CandidatoFila): string {
     <td>${c.potencial != null && c.potencial >= 70 ? `<span class="chip chip-potencial">✦ Potencial alto · ${c.potencial}%</span>` : ""}
       ${(c.destaca ?? []).map((d) => `<span class="chip chip-ok">${esc(d.nombre)} · ${d.puntaje.toFixed(0)}%</span>`).join("") || "—"}
       ${r ? `<a class="chip chip-redireccion" href="/vacantes/${r.vacante_id}" title="Perfil profesional: ${r.perfil.toFixed(0)}% allá frente a ${r.perfil_aqui.toFixed(0)}% aquí (sin IA)">↪ Encaja mejor en ${esc(r.cargo)}</a>` : ""}</td>
-    <td>${badgeDecision(c.decision_lider)}</td>
+    <td>${badgeDecision(c.decision_lider, c.decision_direccion)}</td>
     <td><a class="btn btn-sec btn-sm" href="/candidatos/${c.id}">Informe</a></td>
   </tr>`;
 }
@@ -72,7 +72,7 @@ function seccionPerfil(): string {
       ${nivelRol(p.nivel)}
     </header>
     <p class="meta">▤ ${esc(p.archivo)}${p.division ? ` · ${esc(p.division)}` : ""}. La descripción, la matriz de habilidades y lo que
-      se espera del nuevo integrante salen de este perfil, y el oráculo IA compara cada hoja de vida con él.</p>
+      se espera del nuevo integrante salen de este perfil, y la IA compara cada hoja de vida con él.</p>
     ${avisoCopia(p)}
     <details class="perfil-plegable"><summary>Ver el perfil completo</summary>${fichaPerfil(p)}</details>
   </section>`;
@@ -159,7 +159,7 @@ function pintar(): void {
             (h) => `<tr><td><strong>${esc(h.nombre)}</strong><span class="meta">${h.tipo === "blanda" ? "Blanda" : "Técnica"}</span></td>
               <td>${puntos(h.peso)}</td><td>${puntos(h.nivel)}</td>
               <td class="claves">${h.tipo === "blanda"
-                ? `<span class="meta">No se buscan: el oráculo IA la lee o la deduce de los proyectos</span>`
+                ? `<span class="meta">No se buscan: la IA la lee o la deduce de los proyectos</span>`
                 : h.palabras_clave.split(",").filter((k) => k.trim()).map((k) => `<span class="chip">${esc(k.trim())}</span>`).join("")}</td></tr>`,
           )
           .join("")}</tbody></table></div>

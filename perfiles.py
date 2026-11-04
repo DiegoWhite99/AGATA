@@ -365,6 +365,11 @@ def rango_cargo(cargo: str, perfil: dict | None = None) -> int | None:
     return next((rango for rango, patron in _RANGO_POR_NOMBRE if patron.search(nombre)), None)
 
 
+def es_direccion(cargo: str | None) -> bool:
+    """¿Es un cargo de dirección (director, gerente, rector, decano…)? Solo esos dan la aprobación final."""
+    return rango_cargo(cargo or "") == 3
+
+
 def es_tecnico(*textos: str) -> bool:
     """Sugiere si un cargo es técnico (ingeniería, desarrollo, datos o IA) por su nombre y sus habilidades."""
     return bool(_TECNICO.search(_norm(" ".join(t or "" for t in textos))))

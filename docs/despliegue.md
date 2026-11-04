@@ -35,7 +35,7 @@ haz los pasos en orden.
 - **512 MB de disco**, para el código, las librerías (unos 75 MB), la base y las hojas de vida. Alcanza para unas
   150 a 250 hojas de vida, según su tamaño.
 - **Internet solo hacia sitios permitidos:** Groq, GitHub y Google sí pasan. Los portafolios en general no, así que
-  el informe dirá que no se pudo leer el portafolio. El oráculo igual ve el enlace, y el líder puede abrirlo.
+  el informe dirá que no se pudo leer el portafolio. La IA igual ve el enlace, y el líder puede abrirlo.
 - **Un solo proceso:** las peticiones se atienden una a la vez. Una postulación con IA tarda entre 5 y 20 segundos, y
   mientras tanto los demás esperan. Para una demo está bien.
 - **Hay que renovarlo cada mes** con un clic (paso 9). PythonAnywhere avisa por correo una semana antes.

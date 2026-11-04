@@ -48,24 +48,43 @@ async function cargar(): Promise<void> {
   ia.hidden = false;
   ia.classList.toggle("apagada", !d.ia.activa);
   ia.innerHTML = d.ia.activa
-    ? `<i></i> Oráculo IA activo · ${esc(d.ia.modelo)} en Groq`
-    : `<i></i> Oráculo IA apagado: agrega GROQ_API_KEY al archivo .env`;
+    ? `<i></i> IA activa · ${esc(d.ia.modelo)} en Groq`
+    : `<i></i> IA apagada: agrega GROQ_API_KEY al archivo .env`;
 
   if (esAdmin) ritual(d); // los primeros pasos (empresa, líderes, cargos) son del administrador
 
+  // Esperan la aprobación final de quien mira (si ocupa la dirección de su cadena de mando).
+  $("#por-aprobar").hidden = !d.por_aprobar.length;
+  $("#por-aprobar-lista").innerHTML = d.por_aprobar
+    .map((c) => `<li class="lista-item">
+        <div>
+          <a class="lista-titulo" href="/candidatos/${c.id}">${esc(c.nombre)}</a>
+          <span class="meta">${esc(c.cargo)} · aprobado por ${esc(c.lider_nombre)}</span>
+          ${c.nota_lider ? `<span class="meta"><em>«${esc(c.nota_lider)}»</em></span>` : ""}
+        </div>
+        <div class="lista-acciones">
+          <span class="num puntaje-neutro">${c.puntaje.toFixed(1)}%</span>
+          <a class="btn btn-sm" href="/candidatos/${c.id}#decision-direccion">Revisar y decidir</a>
+        </div>
+      </li>`)
+    .join("");
+
+  const rechazados = d.rechazados;
   $("#kpis").innerHTML = `
     ${kpi(d.vacantes_abiertas, "Vacantes abiertas")}
     ${kpi(d.candidatos, "Postulantes evaluados")}
     ${kpi(d.pendientes, "Por decidir", "kpi-pendiente")}
-    ${kpi(d.aprobados, "Aprobados por el líder", "kpi-aprobado")}
-    ${kpi(d.rechazados, "Rechazados por el líder", "kpi-rechazado")}
-    <div class="kpi kpi-distribucion" aria-label="Decisiones del líder">
+    ${kpi(d.esperan_direccion, "Esperan a la dirección", "kpi-espera")}
+    ${kpi(d.en_equipo, "Entraron al equipo", "kpi-equipo")}
+    <div class="kpi kpi-distribucion" aria-label="Del postulante al equipo"
+         title="Por decidir ${d.pendientes} · esperan a la dirección ${d.esperan_direccion} · en el equipo ${d.en_equipo} · no avanzaron ${rechazados}">
       <div class="apilada">
         <span style="flex:${d.pendientes / total};background:var(--decision)"></span>
-        <span style="flex:${d.aprobados / total};background:var(--match)"></span>
-        <span style="flex:${d.rechazados / total};background:var(--descartado)"></span>
+        <span style="flex:${d.esperan_direccion / total};background:var(--gold)"></span>
+        <span style="flex:${d.en_equipo / total};background:var(--match)"></span>
+        <span style="flex:${rechazados / total};background:var(--descartado)"></span>
       </div>
-      <span>Decisiones del líder</span>
+      <span>Del postulante al equipo${rechazados ? ` · ${rechazados} no avanzaron` : ""}</span>
     </div>`;
 
   $("#vacantes-abiertas").innerHTML = d.vacantes.length
@@ -102,7 +121,7 @@ async function cargar(): Promise<void> {
             <div class="lista-puntaje">
               <span class="num puntaje-neutro">${c.puntaje.toFixed(1)}%</span>
               ${barra(c.puntaje, "var(--gold)")}
-              <span>${badgeDecision(c.decision_lider)}</span>
+              <span>${badgeDecision(c.decision_lider, c.decision_direccion)}</span>
             </div>
           </li>`,
         )

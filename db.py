@@ -103,6 +103,12 @@ CREATE TABLE IF NOT EXISTS candidatos (
     veredicto TEXT,  -- sin uso desde 1.2.0: el match ya no clasifica ni descarta
     decision_lider TEXT,
     nota_lider TEXT,
+    -- Aprobación final: la da el cargo de dirección que encabeza la cadena de mando del líder. Con ella, la
+    -- persona aprobada por su líder entra a su equipo.
+    decision_direccion TEXT,
+    nota_direccion TEXT,
+    direccion_por TEXT,
+    fecha_direccion TEXT,
     enlaces TEXT,
     creado TEXT DEFAULT CURRENT_TIMESTAMP
 );
@@ -156,6 +162,11 @@ MIGRACIONES = [
     ("lideres", "jefe_id", "INTEGER REFERENCES lideres(id) ON DELETE SET NULL"),
     # v10: requisitos excluyentes del cargo (solo título, experiencia y proyectos).
     ("vacantes", "excluyentes", "TEXT"),
+    # v11: la dirección que encabeza la cadena de mando da la aprobación final; con ella, la persona entra al equipo.
+    ("candidatos", "decision_direccion", "TEXT"),
+    ("candidatos", "nota_direccion", "TEXT"),
+    ("candidatos", "direccion_por", "TEXT"),
+    ("candidatos", "fecha_direccion", "TEXT"),
 ]
 
 

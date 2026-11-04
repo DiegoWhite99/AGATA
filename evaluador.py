@@ -172,7 +172,7 @@ def evaluar(vacante: dict, habilidades: list[dict], cv_texto: str, carta_cand: d
 
     fortalezas = [h["nombre"] for h in sorted(detalle, key=lambda h: -(h["cv"] or 0)) if h["estado"] == "cumple"]
     brechas = [h["nombre"] for h in sorted(detalle, key=lambda h: h["cobertura"] or 0) if h["estado"] == "brecha"]
-    # El potencial (capacidad de crecer) es una lectura aparte del oráculo IA: no entra en el puntaje.
+    # El potencial (capacidad de crecer) es una lectura aparte de la IA: no entra en el puntaje.
     potencial = ia.get("potencial") if ia_ok else None
     # Requisitos excluyentes del cargo, tal como los verificó la IA ("sin verificar" si no hay IA o si
     # el líder agregó el requisito después de la última consulta).
@@ -250,7 +250,7 @@ def _recomendacion(comp: dict, lecturas: dict, destaca: list[str], brechas: list
         fuertes = [f"{_FRASE_COMPONENTE[k].format(**nombres)} ({comp[k]:.0f}%)" for k in destaca]
         partes.append(f"Lo más fuerte de {nombres['candidato']} para este cargo es {_y(fuertes)}.")
     if potencial and potencial.get("puntaje", 0) >= 70:
-        partes.append(f"El oráculo ve en {nombres['candidato']} un potencial de crecimiento alto "
+        partes.append(f"La IA ve en {nombres['candidato']} un potencial de crecimiento alto "
                       f"({potencial['puntaje']}%): vale la pena conocerlo aunque su experiencia formal sea corta.")
     if lecturas["profesional"] is not None and lecturas["astral"] is not None:
         partes.append(f"Perfil profesional: {lecturas['profesional']:.0f}%; "

@@ -19,12 +19,17 @@ export function esc(valor) {
 export function html(strings, ...values) {
     return strings.reduce((acc, s, i) => acc + s + (i < values.length ? String(values[i] ?? "") : ""), "");
 }
-export function badgeDecision(d) {
+/** El camino del postulante: decisión del líder y, si aprobó, la aprobación final de la dirección. */
+export function badgeDecision(d, direccion = null) {
     if (!d)
         return `<span class="badge badge-pendiente">Por decidir</span>`;
-    return d === "aprobado"
-        ? `<span class="badge badge-aprobado">✔ Aprobado por líder</span>`
-        : `<span class="badge badge-rechazado">✖ Rechazado por líder</span>`;
+    if (d === "rechazado")
+        return `<span class="badge badge-rechazado">✖ Rechazado por líder</span>`;
+    if (direccion === "aprobado")
+        return `<span class="badge badge-equipo">★ En el equipo</span>`;
+    if (direccion === "rechazado")
+        return `<span class="badge badge-rechazado">✖ No aprobado por la dirección</span>`;
+    return `<span class="badge badge-aprobado">✔ Aprobado por líder</span><span class="badge badge-espera">◷ Falta la dirección</span>`;
 }
 export function colorPuntaje(p) {
     return p >= 80 ? "var(--match)" : p >= 60 ? "var(--decision)" : "var(--descartado)";

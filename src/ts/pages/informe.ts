@@ -36,7 +36,7 @@ function seccionRequisitos(): string {
           <span class="estado-req estado-req-${r.cumple.replace(" ", "-")}">${CUMPLE_TXT[r.cumple]}</span>
         </li>`).join("")}</ul>
       ${reqs.some((r) => r.cumple === "sin verificar") && datos.ia.activa
-        ? `<p class="meta">Algún requisito aún no se verificó: reconsulta al oráculo.</p>` : ""}
+        ? `<p class="meta">Algún requisito aún no se verificó: vuelve a consultar a la IA.</p>` : ""}
     </section>`;
 }
 
@@ -49,7 +49,7 @@ function seccionRedireccion(): string {
         <h2>↪ Podría encajar mejor en «${esc(r.cargo)}»</h2>
         <p class="parrafo">${esc(r.area)}. Su perfil profesional (hoja de vida, habilidades y trabajo en línea) encaja
           <strong>${r.perfil.toFixed(0)}%</strong> allá frente a <strong>${r.perfil_aqui.toFixed(0)}%</strong> aquí, comparado sin la IA.
-          La astrología no decide esta sugerencia. Si lo postulas, el oráculo lo evalúa frente a ese cargo y su líder.</p>
+          La astrología no decide esta sugerencia. Si lo postulas, AGATA lo evalúa frente a ese cargo y su líder.</p>
       </div>
       <div class="acciones-wrap no-print">
         <a class="btn btn-sec btn-sm" href="/vacantes/${r.vacante_id}">Ver el cargo</a>
@@ -200,7 +200,7 @@ function seccionConflictos(): string {
     </section>`;
 }
 
-// --- Dictamen del oráculo IA ----------------------------------------------------
+// --- Dictamen de la IA ----------------------------------------------------
 
 function seccionDictamen(): string {
   const ia = datos.candidato.resultado.ia;
@@ -212,22 +212,22 @@ function seccionDictamen(): string {
     const mensaje = ia && "error" in ia
       ? `<p class="ia-error">${esc(ia.error)}</p>`
       : estado.activa
-        ? `<p class="meta">Este postulante se evaluó antes de activar el oráculo IA.</p>`
-        : `<p class="meta">El oráculo IA está apagado. Agrega <code>GROQ_API_KEY</code> al archivo <code>.env</code> para activarlo.</p>`;
+        ? `<p class="meta">Este postulante se evaluó antes de activar la IA.</p>`
+        : `<p class="meta">La IA está apagada. Agrega <code>GROQ_API_KEY</code> al archivo <code>.env</code> para activarlo.</p>`;
     return `<section class="tarjeta dictamen">
-        <div class="dictamen-cab"><h2>Dictamen del oráculo</h2>${boton("Consultar al oráculo")}</div>
+        <div class="dictamen-cab"><h2>Dictamen de la IA</h2>${boton("Consultar a la IA")}</div>
         ${mensaje}
       </section>`;
   }
   const lecturaLider = ia.lectura_sinastria_lider || ia.lectura_astral || "";
   const desactualizado = (!ia.lectura_sinastria_lider || ia.manejo_conflictos === undefined) && estado.activa
-    ? `<p class="nota">Este dictamen es anterior a las últimas mejoras: reconsulta al oráculo para que lea la sinastría y el manejo de conflictos.</p>`
+    ? `<p class="nota">Este dictamen es anterior a las últimas mejoras: vuelve a consultar a la IA para que lea la sinastría y el manejo de conflictos.</p>`
     : "";
 
   return `<section class="tarjeta dictamen">
       <div class="dictamen-cab">
-        <div><p class="eyebrow">Agente de IA · ${esc(ia.modelo)}</p><h2>Dictamen del oráculo</h2></div>
-        ${boton("Reconsultar al oráculo")}
+        <div><p class="eyebrow">Agente de IA · ${esc(ia.modelo)}</p><h2>Dictamen de la IA</h2></div>
+        ${boton("Volver a consultar a la IA")}
       </div>
       ${desactualizado}
       <p class="dictamen-resumen">${esc(ia.resumen)}</p>
@@ -247,7 +247,7 @@ function seccionDictamen(): string {
           ${ia.lectura_sinastria_empresa ? `<h3 class="subtitulo">Lectura de la sinastría con la empresa</h3><p class="parrafo">${esc(ia.lectura_sinastria_empresa)}</p>` : ""}
           ${ia.manejo_conflictos ? `<h3 class="subtitulo">Manejo de conflictos</h3><p class="parrafo">${esc(ia.manejo_conflictos)}</p>` : ""}
           ${ia.evidencia_en_linea ? `<h3 class="subtitulo">Lo que muestra su trabajo en línea</h3><p class="parrafo">${esc(ia.evidencia_en_linea)}</p>` : ""}
-          <h3 class="subtitulo">Lo que el oráculo ve</h3>
+          <h3 class="subtitulo">Lo que ve la IA</h3>
           ${lista(ia.fortalezas, "—")}
         </div>
         <div>
@@ -257,7 +257,7 @@ function seccionDictamen(): string {
           ${lista(ia.preguntas_entrevista, "—")}
         </div>
       </div>
-      ${ia.recomendacion ? `<p class="parrafo"><strong>Recomendación del oráculo:</strong> ${esc(ia.recomendacion)}</p>` : ""}
+      ${ia.recomendacion ? `<p class="parrafo"><strong>Recomendación de la IA:</strong> ${esc(ia.recomendacion)}</p>` : ""}
     </section>`;
 }
 
@@ -281,7 +281,7 @@ const enlace = (url: string, texto = url) => `<a href="${esc(url)}" target="_bla
 function estadoEnlace(e: EnlaceBase): string {
   const origen = ORIGEN_TXT[e.origen] ? `<span class="chip">${ORIGEN_TXT[e.origen]}</span>` : "";
   const estado = e.leido
-    ? `<span class="chip chip-ok">leído por el oráculo</span>`
+    ? `<span class="chip chip-ok">leído por la IA</span>`
     : e.error ? `<span class="ia-error">${esc(e.error)}</span>` : `<span class="meta">${esc(e.nota ?? "")}</span>`;
   return origen + estado;
 }
@@ -310,7 +310,7 @@ function fichaPagina(titulo: string, p: EnlacePagina): string {
   return `<div class="ficha-enlace">
       <h3 class="subtitulo">${titulo}${p.titulo ? ` · ${esc(p.titulo)}` : ""}</h3>
       ${p.descripcion ? `<p class="parrafo">${esc(p.descripcion)}</p>` : ""}
-      ${p.poco_texto ? `<p class="nota">La página se arma con JavaScript: el oráculo solo pudo leer su título y su descripción.</p>` : ""}
+      ${p.poco_texto ? `<p class="nota">La página se arma con JavaScript: la IA solo pudo leer su título y su descripción.</p>` : ""}
     </div>`;
 }
 
@@ -357,7 +357,7 @@ function seccionEnlaces(): string {
             <small class="error" data-error="${clave}" hidden></small></label>`).join("")}</div>
           <div class="acciones-wrap">
             <button class="btn btn-sm" type="submit">Guardar y volver a leer</button>
-            <span class="meta">Un campo vacío toma el enlace de la hoja de vida, si lo trae. Con el oráculo activo, se recalcula el dictamen.</span>
+            <span class="meta">Un campo vacío toma el enlace de la hoja de vida, si lo trae. Con la IA activa, se recalcula el dictamen.</span>
           </div>
         </form>
       </details>
@@ -410,7 +410,7 @@ function pintar(): void {
     : "";
 
   raiz.innerHTML = `
-    ${nuevo ? `<div class="aviso">✦ Postulación registrada. El oráculo ha pronunciado su informe.</div>` : ""}
+    ${nuevo ? `<div class="aviso">✦ Postulación registrada. AGATA ya preparó su informe.</div>` : ""}
     <a class="migas no-print" href="/vacantes/${v.id}">← ${esc(v.cargo)}</a>
     <header class="pagina-cab">
       <div>
@@ -433,11 +433,11 @@ function pintar(): void {
     <section class="tarjeta veredicto">
       <div class="corona">${laurel(230)}${anillo(r.puntaje, 150, 10, "var(--gold)")}</div>
       <div class="veredicto-texto">
-        <p class="eyebrow">Lectura del oráculo · puesto ${datos.ranking.posicion} de ${datos.ranking.total} en esta vacante</p>
-        <h2>${badgeDecision(c.decision_lider)}${r.cumple_requisitos === false ? ` <span class="badge badge-no-cumple">No cumple requisitos</span>` : ""}</h2>
+        <p class="eyebrow">Lectura de AGATA · puesto ${datos.ranking.posicion} de ${datos.ranking.total} en esta vacante</p>
+        <h2>${badgeDecision(c.decision_lider, c.decision_direccion)}${r.cumple_requisitos === false ? ` <span class="badge badge-no-cumple">No cumple requisitos</span>` : ""}</h2>
         <p>${r.cumple_requisitos === false
           ? "No cumple un requisito excluyente del cargo: queda al final del ranking y el líder confirma."
-          : "Nadie queda descartado: el puntaje ordena a los postulantes y el líder decide quién avanza."}</p>
+          : "Nadie queda descartado: el puntaje ordena a los postulantes, el líder decide quién avanza y la dirección da la aprobación final."}</p>
         <div class="lecturas">
           ${lectura("Perfil profesional", "Hoja de vida + IA", r.lecturas.profesional)}
           ${lectura("Afinidad astral", "Líder, empresa, elemento y conflictos", r.lecturas.astral)}
@@ -502,16 +502,7 @@ function pintar(): void {
           <div><h3 class="subtitulo">Puntos a favor</h3>${r.fortalezas.length ? `<ul class="chips">${r.fortalezas.map((f) => `<li class="chip chip-ok">${esc(f)}</li>`).join("")}</ul>` : `<p class="meta">En las habilidades aún no hay evidencia fuerte; mira «Destaca en», arriba.</p>`}</div>
           <div><h3 class="subtitulo">Para explorar en la entrevista</h3>${r.brechas.length ? `<ul class="chips">${r.brechas.map((f) => `<li class="chip">${esc(f)}</li>`).join("")}</ul>` : `<p class="meta">Nada pendiente en las habilidades del cargo</p>`}</div>
         </div>
-        <div class="decision no-print" id="decision">
-          <h3 class="subtitulo">Decisión del líder</h3>
-          <textarea id="nota" rows="2" placeholder="Nota para el equipo de selección (opcional)">${esc(c.nota_lider ?? "")}</textarea>
-          <div class="acciones-wrap">
-            <button class="btn btn-ok btn-sm" data-decision="aprobado">✓ Aprobar</button>
-            <button class="btn btn-peligro btn-sm" data-decision="rechazado">✕ Rechazar</button>
-            ${c.decision_lider ? `<button class="btn btn-sec btn-sm" data-decision="">Quitar decisión</button>` : ""}
-            ${esAdmin ? `<button class="btn btn-fantasma btn-sm" id="btn-borrar">Eliminar postulación</button>` : ""}
-          </div>
-        </div>
+        ${bloqueDecision()}
         ${c.nota_lider ? `<p class="nota solo-print">Nota del líder: ${esc(c.nota_lider)}</p>` : ""}
       </section>
     </div>
@@ -554,23 +545,106 @@ async function cargar(): Promise<void> {
   pintar();
 }
 
+// --- Decisión del líder y aprobación final de la dirección ------------------------------------
+// El líder aprueba; luego el cargo de dirección que encabeza su cadena de mando da la aprobación final, y con ella
+// la persona entra al equipo del líder. Si el cargo es de esa misma dirección, su aprobación como líder basta.
+
+const direccionPropia = () => datos.soy_direccion && datos.direccion?.id === datos.lider.id;
+
+function bloqueDecision(): string {
+  const { candidato: c, direccion: dir } = datos;
+  const fijada = c.decision_direccion != null && !direccionPropia();
+  return `<div class="decision no-print" id="decision">
+      <h3 class="subtitulo">Decisión del líder</h3>
+      ${fijada
+        ? `<p class="nota">${esc(dir?.nombre ?? "La dirección")} ya dio la decisión final. Para cambiar la del líder, primero debe retirarla.</p>`
+        : `<textarea id="nota" rows="2" placeholder="Nota para el equipo de selección (opcional)">${esc(c.nota_lider ?? "")}</textarea>`}
+      <div class="acciones-wrap">
+        ${fijada ? "" : `<button class="btn btn-ok btn-sm" data-decision="aprobado">✓ Aprobar</button>
+          <button class="btn btn-peligro btn-sm" data-decision="rechazado">✕ Rechazar</button>
+          ${c.decision_lider ? `<button class="btn btn-sec btn-sm" data-decision="">Quitar decisión</button>` : ""}`}
+        ${esAdmin ? `<button class="btn btn-fantasma btn-sm" id="btn-borrar">Eliminar postulación</button>` : ""}
+      </div>
+    </div>
+    ${bloqueDireccion()}`;
+}
+
+function bloqueDireccion(): string {
+  const { candidato: c, direccion: dir, lider: l } = datos;
+  const quien = dir ? `<strong>${esc(dir.nombre)}</strong> (${esc(dir.cargo)})` : "";
+  let cuerpo: string;
+  if (!dir) {
+    cuerpo = `<p class="nota">La cadena de mando de ${esc(l.nombre)} no tiene un cargo de dirección, así que nadie puede dar
+      la aprobación final. Asígnale su jefe inmediato en Líderes.</p>`;
+  } else if (c.decision_direccion) {
+    const entro = c.decision_direccion === "aprobado";
+    cuerpo = `<p class="${entro ? "direccion-entro" : "nota"}">${entro
+        ? `★ ${esc(c.nombre)} es parte del equipo de ${esc(l.nombre)}.`
+        : "✖ La dirección no aprobó su ingreso al equipo."}
+        <span class="meta-inline">${esc(c.direccion_por ?? dir.nombre)}${c.fecha_direccion ? ` · ${fecha(c.fecha_direccion)}` : ""}</span></p>
+      ${c.nota_direccion ? `<p class="parrafo">«${esc(c.nota_direccion)}»</p>` : ""}
+      ${datos.soy_direccion && !direccionPropia()
+        ? `<div class="acciones-wrap no-print"><button class="btn btn-sec btn-sm" data-direccion="">Quitar decisión final</button></div>` : ""}`;
+  } else if (c.decision_lider !== "aprobado") {
+    cuerpo = direccionPropia()
+      ? `<p class="meta">Este cargo es tuyo y ocupas la dirección: al aprobar como líder, la persona entra a tu equipo.</p>`
+      : `<p class="meta">Cuando ${esc(l.nombre)} apruebe, ${quien} da la aprobación final para que entre a su equipo.</p>`;
+  } else {
+    cuerpo = `<p class="meta">◷ Espera la aprobación final de ${quien}.</p>
+      ${datos.soy_direccion ? `<div class="no-print">
+          <textarea id="nota-direccion" rows="2" placeholder="Nota de la dirección (opcional)"></textarea>
+          <div class="acciones-wrap">
+            <button class="btn btn-ok btn-sm" data-direccion="aprobado">★ Aprobar ingreso al equipo</button>
+            <button class="btn btn-peligro btn-sm" data-direccion="rechazado">✕ No aprobar</button>
+          </div></div>` : ""}`;
+  }
+  return `<div class="decision decision-direccion" id="decision-direccion">
+      <h3 class="subtitulo">Aprobación de la dirección</h3>${cuerpo}</div>`;
+}
+
+/** Al entrar alguien al equipo, se pregunta si la vacante se cierra (un cargo puede tener varias plazas). */
+function preguntarCierre(): boolean {
+  return datos.vacante.estado === "abierta" && confirmar(
+    `${datos.candidato.nombre} entra al equipo. ¿Cerrar también la vacante «${datos.vacante.cargo}»?\n\n` +
+    "Aceptar: se cierra y deja de recibir postulaciones.\nCancelar: sigue abierta (por si hay más plazas).");
+}
+
 async function decidir(decision: Decision): Promise<void> {
-  const nota = ($("#nota") as HTMLTextAreaElement).value;
-  await api.patch(`/api/candidatos/${id}/decision`, { decision, nota });
-  datos.candidato.decision_lider = decision;
-  datos.candidato.nota_lider = nota || null;
-  toast(decision === "aprobado" ? "Postulante aprobado" : decision === "rechazado" ? "Postulante rechazado" : "Decisión retirada");
-  pintar();
+  const nota = $<HTMLTextAreaElement>("#nota").value;
+  const cerrar_vacante = decision === "aprobado" && direccionPropia() && preguntarCierre();
+  try {
+    await api.patch(`/api/candidatos/${id}/decision`, { decision, nota, cerrar_vacante });
+    toast(decision === "aprobado"
+      ? (direccionPropia() ? `${datos.candidato.nombre} entró a tu equipo` : "Postulante aprobado: falta la aprobación de la dirección")
+      : decision === "rechazado" ? "Postulante rechazado" : "Decisión retirada");
+  } catch (err) {
+    toast(err instanceof ApiError ? err.message : "No se pudo guardar la decisión.", "error");
+  }
+  await cargar();
+}
+
+async function decidirDireccion(decision: Decision): Promise<void> {
+  const nota = document.querySelector<HTMLTextAreaElement>("#nota-direccion")?.value ?? "";
+  const cerrar_vacante = decision === "aprobado" && preguntarCierre();
+  try {
+    const r = await api.patch<{ vacante_cerrada: boolean }>(`/api/candidatos/${id}/direccion`, { decision, nota, cerrar_vacante });
+    toast(decision === "aprobado"
+      ? `${datos.candidato.nombre} entró al equipo de ${datos.lider.nombre}${r.vacante_cerrada ? " · vacante cerrada" : ""}`
+      : decision === "rechazado" ? "Ingreso no aprobado" : "Decisión final retirada");
+  } catch (err) {
+    toast(err instanceof ApiError ? err.message : "No se pudo guardar la decisión.", "error");
+  }
+  await cargar();
 }
 
 async function reconsultar(btn: HTMLButtonElement): Promise<void> {
   btn.disabled = true;
-  btn.textContent = "El oráculo está leyendo…";
+  btn.textContent = "La IA está leyendo…";
   try {
     await api.post(`/api/candidatos/${id}/oraculo`, {});
-    toast("El oráculo pronunció un nuevo dictamen");
+    toast("La IA dio un nuevo dictamen");
   } catch (err) {
-    toast(err instanceof ApiError ? err.message : "No se pudo consultar al oráculo.", "error");
+    toast(err instanceof ApiError ? err.message : "No se pudo consultar a la IA.", "error");
   }
   await cargar();
 }
@@ -579,6 +653,8 @@ raiz.addEventListener("click", async (e) => {
   const t = e.target as HTMLElement;
   const d = t.closest<HTMLElement>("[data-decision]");
   if (d) await decidir((d.dataset.decision || null) as Decision);
+  const dd = t.closest<HTMLElement>("[data-direccion]");
+  if (dd) await decidirDireccion((dd.dataset.direccion || null) as Decision);
   const q = t.closest<HTMLElement>("[data-dicta]");
   if (q) {
     dicta = q.dataset.dicta as typeof dicta;
@@ -598,7 +674,7 @@ raiz.addEventListener("click", async (e) => {
   const redirigir = t.closest<HTMLButtonElement>("#btn-redirigir");
   if (redirigir) {
     redirigir.disabled = true;
-    redirigir.textContent = "El oráculo lo está evaluando…";
+    redirigir.textContent = "AGATA lo está evaluando…";
     try {
       const nuevo = await api.post<{ id: number; cargo: string; visible: boolean }>(
         `/api/candidatos/${id}/postular-a/${redirigir.dataset.vacante}`, {});

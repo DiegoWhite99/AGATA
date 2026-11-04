@@ -117,7 +117,7 @@ function pintarResumen() {
       <dt>Trabajo en línea</dt><dd>${ENLACES.filter(([k]) => valor(k)).map(([k, nombre]) => `${nombre}: ${esc(valor(k))}`).join(" · ")
         || "Los tomamos de tu hoja de vida, si los trae"}</dd>
     </dl>
-    <p class="ayuda">Al enviar, el oráculo cruza tu carta con la del líder y la de la empresa, lee tu hoja de vida
+    <p class="ayuda">Al enviar, AGATA cruza tu carta con la del líder y la de la empresa, lee tu hoja de vida
       y el líder del cargo recibe el informe de match.</p>`;
 }
 // --- Eventos ------------------------------------------------------------------
@@ -167,7 +167,7 @@ form.addEventListener("submit", async (e) => {
         $("#postular").innerHTML = `<section class="tarjeta login">
         <p class="eyebrow">Postulación recibida</p>
         <h1>Gracias, ${esc(valor("nombre").split(" ")[0])}</h1>
-        <p class="lead">El oráculo ya cruzó tu carta con la del líder y la de la empresa, y leyó tu hoja de vida.
+        <p class="lead">AGATA ya cruzó tu carta con la del líder y la de la empresa, y leyó tu hoja de vida.
           El líder del cargo revisa tu postulación y te contactará a ${esc(valor("email"))}.</p>
       </section>`;
         window.scrollTo({ top: 0 });

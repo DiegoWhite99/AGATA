@@ -133,6 +133,8 @@ export interface Lider extends DatosNatales {
   /** Cadena de mando: el líder del que depende. */
   jefe_id: number | null;
   jefe_nombre?: string | null;
+  /** Quienes ya entraron a su equipo: aprobados por el líder y por la dirección. */
+  integrantes?: { id: number; nombre: string; cargo: string }[];
 }
 
 export type Rol = "admin" | "lider";
@@ -192,7 +194,8 @@ export interface DatosRed {
   afinidades: { a: number; b: number; sinastria: number | null; relacion: RelacionLider }[];
   vacantes: { id: number; cargo: string; area: string; lider_id: number; estado: string; tecnico: number }[];
   candidatos: { id: number; nombre: string; vacante_id: number; puntaje: number; decision_lider: Decision;
-                sinastria_lider: number | null; potencial: number | null; arquetipo: Arquetipo | null }[];
+                decision_direccion: Decision; sinastria_lider: number | null; potencial: number | null;
+                arquetipo: Arquetipo | null }[];
 }
 
 export type TipoHabilidad = "tecnica" | "blanda";
@@ -238,7 +241,7 @@ export interface Redireccion {
   perfil_aqui: number;
 }
 
-/** Capacidad de crecer y aprender según el oráculo IA (no entra en el puntaje). */
+/** Capacidad de crecer y aprender según la IA (no entra en el puntaje). */
 export interface Potencial {
   puntaje: number;
   lectura: string;
@@ -293,6 +296,8 @@ export interface CandidatoFila {
   email: string;
   puntaje: number;
   decision_lider: Decision;
+  /** Aprobación final de la dirección: con ella, la persona entra al equipo del líder. */
+  decision_direccion: Decision;
   creado: string;
   signo_sol: string | null;
   lecturas: Lecturas | null;
@@ -551,8 +556,20 @@ export interface Candidato extends DatosNatales {
   puntaje: number;
   decision_lider: Decision;
   nota_lider: string | null;
+  decision_direccion: Decision;
+  nota_direccion: string | null;
+  /** Quién dio la decisión final y cuándo. */
+  direccion_por: string | null;
+  fecha_direccion: string | null;
   enlaces: Enlaces | null;
   creado: string;
+}
+
+/** El cargo de dirección que encabeza la cadena de mando del líder: da la aprobación final. */
+export interface Direccion {
+  id: number;
+  nombre: string;
+  cargo: string;
 }
 
 export interface Informe {
@@ -563,6 +580,10 @@ export interface Informe {
   /** Puesto del postulante en el ranking de su vacante. */
   ranking: { posicion: number; total: number };
   redireccion: Redireccion | null;
+  /** null si la cadena de mando del líder no tiene un cargo de dirección. */
+  direccion: Direccion | null;
+  /** ¿Quien mira es esa dirección? Solo ella da la aprobación final. */
+  soy_direccion: boolean;
   ia: EstadoIA;
 }
 
@@ -573,6 +594,11 @@ export interface Panel {
   pendientes: number;
   aprobados: number;
   rechazados: number;
+  esperan_direccion: number;
+  en_equipo: number;
+  /** Los que esperan la aprobación final de quien mira. */
+  por_aprobar: { id: number; nombre: string; puntaje: number; cargo: string; vacante_id: number; lider_nombre: string;
+                 nota_lider: string | null }[];
   recientes: (CandidatoFila & { cargo: string; vacante_id: number })[];
   vacantes: VacanteResumen[];
   empresa: Empresa | null;

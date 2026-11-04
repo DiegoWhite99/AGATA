@@ -67,6 +67,8 @@ function tarjetaLider(l) {
       </header>
       ${chipArquetipo(l.carta, true)}
       ${l.jefe_nombre ? `<p class="meta">Reporta a <strong>${esc(l.jefe_nombre)}</strong></p>` : ""}
+      ${l.integrantes?.length ? `<p class="meta integrantes">★ En su equipo: ${l.integrantes
+        .map((i) => `<a href="/candidatos/${i.id}" title="${esc(i.cargo)}">${esc(i.nombre)}</a>`).join(", ")}</p>` : ""}
       ${astros}
       ${l.carta ? `<p class="meta">Ante el conflicto tiende a <strong>${l.carta.conflicto.dominante.toLowerCase()}</strong>
           · necesita ${esc(l.carta.conflicto.necesita)}.</p>` : ""}

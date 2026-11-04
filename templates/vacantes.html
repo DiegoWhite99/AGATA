@@ -70,7 +70,7 @@
         <label class="campo-check">
           <input type="checkbox" name="tecnico">
           <span><strong>Cargo técnico</strong> (ingeniería, desarrollo, datos o IA). Todo postulante comparte su portafolio;
-            en los cargos técnicos también su GitHub, su LinkedIn y su repositorio destacado, y el oráculo los revisa.
+            en los cargos técnicos también su GitHub, su LinkedIn y su repositorio destacado, y la IA los revisa.
             Se marca solo al elegir el perfil, si lo parece.</span>
         </label>
       </fieldset>
@@ -124,7 +124,7 @@
 
       <fieldset>
         <legend>4 · Requisitos excluyentes <em class="opcional">(opcionales)</em></legend>
-        <p class="ayuda">Lo único innegociable del cargo: título, experiencia y proyectos. El oráculo IA lo verifica en la
+        <p class="ayuda">Lo único innegociable del cargo: título, experiencia y proyectos. La IA lo verifica en la
           hoja de vida y el trabajo en línea; quien no lo cumple queda marcado y al final del ranking, y el líder confirma.
           Licencias, libreta militar y otros documentos no suman ni restan.</p>
         <div class="grid-3">
@@ -145,4 +145,4 @@
   </form>
 </dialog>
 {% endblock %}
-{% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/vacantes.js') }}"></script>{% endblock %}
+{% block scripts %}<script type="module" src="{{ recurso('js/pages/vacantes.js') }}"></script>{% endblock %}

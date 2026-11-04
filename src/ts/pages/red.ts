@@ -3,7 +3,8 @@ import { COLOR_ELEMENTO, RELACION_LIDER } from "../astro-ui.js";
 import { $, $$, esAdmin, esc, toast, vacio } from "../ui.js";
 import type { Arquetipo, DatosRed, RelacionLider } from "../types.js";
 
-type Tipo = "empresa" | "lider" | "vacante" | "candidato";
+/** "integrante": aprobado por su líder y por la dirección; ya es parte del equipo del líder. */
+type Tipo = "empresa" | "lider" | "vacante" | "candidato" | "integrante";
 /** Cadena de mando (el árbol de siempre) o afinidad entre líderes (los demás giran alrededor del central). */
 type Vista = "cadena" | "afinidad";
 
@@ -31,7 +32,9 @@ interface Nodo {
   nivel: number;
 }
 
-const TIPO_TXT: Record<Tipo, string> = { empresa: "Empresa", lider: "Líder", vacante: "Cargo", candidato: "Postulante" };
+const TIPO_TXT: Record<Tipo, string> = {
+  empresa: "Empresa", lider: "Líder", vacante: "Cargo", candidato: "Postulante", integrante: "Integrante del equipo",
+};
 const ANILLO = 125;
 const MARGEN = 120;
 const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -67,6 +70,16 @@ function ramaLider(id: number, fuerza: number | null, con: string, visitados: Se
   const equipo = datos.lideres
     .filter((o) => o.jefe_id === id && !visitados.has(o.id))
     .map((o) => ramaLider(o.id, o.sinastria_jefe, nombreCorto, visitados));
+  // Quienes ya entraron a su equipo cuelgan del líder (no de la vacante), estén abiertas o cerradas sus vacantes.
+  const susCargos = new Map(datos.vacantes.filter((v) => v.lider_id === id).map((v) => [v.id, v.cargo]));
+  const integrantes = datos.candidatos
+    .filter((c) => c.decision_direccion === "aprobado" && susCargos.has(c.vacante_id))
+    .map((c) =>
+      nodo({
+        id: `i${c.id}`, tipo: "integrante", nombre: c.nombre, enlace: `/candidatos/${c.id}`, arquetipo: c.arquetipo,
+        fuerza: c.sinastria_lider, con: nombreCorto, detalle: `En su equipo · entró como ${susCargos.get(c.vacante_id)}`,
+      }),
+    );
   const cargos = datos.vacantes
     .filter((v) => v.lider_id === id && (chkCerradas.checked || v.estado === "abierta"))
     .map((v) =>
@@ -75,7 +88,7 @@ function ramaLider(id: number, fuerza: number | null, con: string, visitados: Se
         detalle: [v.area, v.tecnico ? "cargo técnico" : "", v.estado === "cerrada" ? "cerrada" : ""].filter(Boolean).join(" · "),
         hijos: chkPostulantes.checked
           ? datos.candidatos
-              .filter((c) => c.vacante_id === v.id)
+              .filter((c) => c.vacante_id === v.id && c.decision_direccion !== "aprobado")
               .map((c) =>
                 nodo({
                   id: `c${c.id}`, tipo: "candidato", nombre: c.nombre, enlace: `/candidatos/${c.id}`, arquetipo: c.arquetipo,
@@ -88,7 +101,7 @@ function ramaLider(id: number, fuerza: number | null, con: string, visitados: Se
     );
   return nodo({
     id: `l${id}`, tipo: "lider", nombre: l.nombre, detalle: l.cargo, enlace: "/lideres", arquetipo: l.arquetipo,
-    fuerza, con, hijos: [...equipo, ...cargos],
+    fuerza, con, hijos: [...equipo, ...integrantes, ...cargos],
   });
 }
 
@@ -216,6 +229,11 @@ function figura(n: Nodo, c: number, centro: boolean): string {
   if (n.tipo === "vacante") {
     forma = `<rect x="-11" y="-11" width="22" height="22" transform="rotate(45)" class="nodo-vacante" stroke="${color}"/>`;
     etiqueta = etiquetaFuera(n, 22);
+  } else if (n.tipo === "integrante") {
+    forma = `<circle r="18" class="halo-integrante" stroke="${color}"/>
+      <circle r="12" fill="${color}" fill-opacity="0.6" stroke="${color}" stroke-width="2" class="nodo-cuerpo"/>
+      <text class="nodo-estrella" dy="0.35em">★</text>`;
+    etiqueta = etiquetaFuera(n, 25);
   } else if (n.tipo === "candidato") {
     const r = 9;
     forma = `${n.potencial ? `<circle r="${r + 6}" class="aura-potencial"/>` : ""}
@@ -330,6 +348,7 @@ function leyenda(): string {
     <span><i class="forma-red forma-lider"></i>Líder</span>
     <span><i class="forma-red forma-vacante"></i>Cargo</span>
     <span><i class="forma-red forma-candidato"></i>Postulante</span>
+    <span><i class="forma-red forma-integrante"></i>Integrante del equipo</span>
     <span><i class="forma-red forma-potencial"></i>Potencial alto</span>
     ${vista === "afinidad"
       ? `<span class="meta-inline">Más cerca del centro y más brillante = más afinidad · los anillos marcan 80 %, 60 % y 40 % ·

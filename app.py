@@ -35,6 +35,16 @@ MIN_ESTILO_LIDER = 100
 MIN_EXPECTATIVAS_LIDER = 100
 MIN_DESC_VACANTE = 150
 
+def _version() -> str:
+    """La versión de AGATA, que vive en package.json; se muestra en el pie de página."""
+    try:
+        return json.loads((BASE / "package.json").read_text(encoding="utf-8"))["version"]
+    except (OSError, ValueError, KeyError):
+        return ""
+
+
+VERSION = _version()
+
 app = Flask(__name__)
 app.config.update(
     MAX_CONTENT_LENGTH=5 * 1024 * 1024,
@@ -87,7 +97,7 @@ def para_lideres(vista):
 
 @app.before_request
 def _control_de_acceso():
-    if request.endpoint == "static":
+    if request.endpoint in ("static", "recursos"):
         return None
     # Contra CSRF: todo lo que cambia datos llega desde api.ts, que pone esta cabecera; un formulario de
     # otro sitio no puede ponerla.
@@ -112,7 +122,27 @@ def _control_de_acceso():
 
 @app.context_processor
 def _sesion_en_plantillas():
-    return {"usuario": g.get("usuario")}
+    return {"usuario": g.get("usuario"), "recurso": _recurso, "version": VERSION}
+
+
+# --- JS y CSS con la versión en la dirección ------------------------------------------------
+# PythonAnywhere entrega static/ sin decirle al navegador cuándo volver a pedir cada archivo, así que el navegador
+# puede seguir usando el JS viejo después de un despliegue. Las plantillas piden /recursos/<huella>/...: la huella
+# cambia cuando cambia cualquier archivo de static/, y los `import` relativos del JS heredan la misma huella.
+
+def _huella_recursos() -> str:
+    ultima = max((f.stat().st_mtime_ns for f in (BASE / "static").rglob("*") if f.is_file()), default=0)
+    return format(ultima // 1_000_000, "x")
+
+
+def _recurso(archivo: str) -> str:
+    return f"/recursos/{_huella_recursos()}/{archivo}"
+
+
+@app.get("/recursos/<huella>/<path:archivo>")
+def recursos(huella: str, archivo: str):
+    # Cada huella es una versión fija de los archivos: el navegador puede guardarla un año sin volver a preguntar.
+    return send_from_directory(BASE / "static", archivo, max_age=365 * 24 * 3600)
 
 
 def _alcance(con) -> set[int] | None:
@@ -411,11 +441,26 @@ def api_ciudades():
 def api_panel():
     con = get_db()
     en_alcance, params = _filtro_alcance(con, "v.lider_id")
-    conteo = {r["decision_lider"]: r["n"] for r in con.execute(f"""
-        SELECT c.decision_lider, COUNT(*) n FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id
-        WHERE {en_alcance} GROUP BY c.decision_lider""", params)}
+    conteo = dict(con.execute(f"""
+        SELECT COUNT(*) AS candidatos, COALESCE(SUM(c.decision_lider IS NULL), 0) AS pendientes,
+               COALESCE(SUM(c.decision_lider = 'aprobado'), 0) AS aprobados,
+               COALESCE(SUM(c.decision_lider = 'rechazado' OR c.decision_direccion = 'rechazado'), 0) AS rechazados,
+               COALESCE(SUM(c.decision_lider = 'aprobado' AND c.decision_direccion IS NULL), 0) AS esperan_direccion,
+               COALESCE(SUM(c.decision_direccion = 'aprobado'), 0) AS en_equipo
+        FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id WHERE {en_alcance}""", params).fetchone())
+    # Los que esperan la aprobación final de quien mira (si ocupa la dirección de su cadena de mando).
+    lideres_todos = _lideres_por_id(con)
+    por_aprobar = [
+        {k: c[k] for k in ("id", "nombre", "puntaje", "cargo", "vacante_id", "lider_nombre", "nota_lider")}
+        for c in rows_to_list(con.execute(f"""
+            SELECT c.id, c.nombre, c.puntaje, c.nota_lider, v.cargo, v.id AS vacante_id, v.lider_id,
+                   l.nombre AS lider_nombre
+            FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id JOIN lideres l ON l.id = v.lider_id
+            WHERE {en_alcance} AND c.decision_lider = 'aprobado' AND c.decision_direccion IS NULL
+            ORDER BY c.id""", params))
+        if _es_de(g.usuario, _direccion_de(lideres_todos, c["lider_id"]))]
     recientes = con.execute(f"""
-        SELECT c.id, c.nombre, c.puntaje, c.decision_lider, c.creado,
+        SELECT c.id, c.nombre, c.puntaje, c.decision_lider, c.decision_direccion, c.creado,
                json_extract(c.carta, '$.arquetipo') AS arquetipo, v.cargo, v.id AS vacante_id
         FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id
         WHERE {en_alcance} ORDER BY c.id DESC LIMIT 8""", params).fetchall()
@@ -424,10 +469,8 @@ def api_panel():
         "vacantes_abiertas": con.execute(
             f"SELECT COUNT(*) FROM vacantes v WHERE v.estado='abierta' AND {en_alcance}", params).fetchone()[0],
         "lideres": con.execute(f"SELECT COUNT(*) FROM lideres WHERE {lideres_en_alcance}", params_l).fetchone()[0],
-        "candidatos": sum(conteo.values()),
-        "pendientes": conteo.get(None, 0),
-        "aprobados": conteo.get("aprobado", 0),
-        "rechazados": conteo.get("rechazado", 0),
+        **conteo,
+        "por_aprobar": por_aprobar,
         "recientes": [{**r, "arquetipo": json.loads(r["arquetipo"]) if r["arquetipo"] else None}
                       for r in rows_to_list(recientes)],
         "vacantes": _lista_vacantes(con, solo_abiertas=True),
@@ -461,7 +504,7 @@ def api_red():
                   for x, y in itertools.combinations(lideres, 2)]
 
     candidatos = rows_to_list(con.execute(f"""
-        SELECT c.id, c.nombre, c.vacante_id, c.puntaje, c.decision_lider, c.carta,
+        SELECT c.id, c.nombre, c.vacante_id, c.puntaje, c.decision_lider, c.decision_direccion, c.carta,
                json_extract(c.resultado, '$.componentes.lider') AS sinastria_lider,
                json_extract(c.resultado, '$.potencial.puntaje') AS potencial
         FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id WHERE {en_alcance} ORDER BY c.puntaje DESC""", params))
@@ -476,7 +519,7 @@ def api_red():
         "vacantes": rows_to_list(con.execute(
             f"SELECT id, cargo, area, lider_id, estado, tecnico FROM vacantes v WHERE {en_alcance} ORDER BY id", params)),
         "candidatos": [{**{k: c[k] for k in ("id", "nombre", "vacante_id", "puntaje", "decision_lider",
-                                              "sinastria_lider", "potencial")},
+                                              "decision_direccion", "sinastria_lider", "potencial")},
                         "arquetipo": (c["carta"] or {}).get("arquetipo")} for c in candidatos],
     })
 
@@ -593,6 +636,42 @@ def _lider_publico(lider: dict | None) -> dict | None:
     return lider
 
 
+def _lideres_por_id(con) -> dict[int, dict]:
+    return {l["id"]: l for l in rows_to_list(con.execute("SELECT id, nombre, cargo, email, jefe_id FROM lideres"))}
+
+
+def _direccion_de(lideres: dict[int, dict], lider_id: int | None) -> dict | None:
+    """Quién da la aprobación final de un postulante aprobado por este líder: el cargo de dirección más alto de su
+    cadena de mando (normalmente quien la encabeza, que puede ser el mismo líder). None si la cadena no tiene uno."""
+    cadena: list[dict] = []
+    while lider_id in lideres and all(l["id"] != lider_id for l in cadena):
+        cadena.append(lideres[lider_id])
+        lider_id = lideres[lider_id]["jefe_id"]
+    return next((l for l in reversed(cadena) if perfiles.es_direccion(l["cargo"])), None)
+
+
+def _es_de(usuario: dict | None, lider: dict | None) -> bool:
+    """¿El usuario es esa persona? Por la ficha de líder ligada a su usuario o por el mismo correo. Ser
+    administrador no basta: la aprobación final es de quien ocupa la dirección."""
+    if not usuario or not lider:
+        return False
+    if usuario.get("lider_id") == lider["id"]:
+        return True
+    return bool(lider.get("email") and usuario.get("email")
+                and lider["email"].strip().lower() == usuario["email"].strip().lower())
+
+
+def _publico_direccion(d: dict | None) -> dict | None:
+    return {"id": d["id"], "nombre": d["nombre"], "cargo": d["cargo"]} if d else None
+
+
+def _guardar_direccion(con, cid: int, decision: str | None, nota: str | None, usuario: dict) -> None:
+    con.execute("""UPDATE candidatos SET decision_direccion=?, nota_direccion=?, direccion_por=?,
+                   fecha_direccion=CASE WHEN ? IS NULL THEN NULL ELSE CURRENT_TIMESTAMP END WHERE id=?""",
+                (decision, nota if decision else None,
+                 (usuario.get("nombre") or usuario.get("email")) if decision else None, decision, cid))
+
+
 def _jefes(con) -> dict[int, int | None]:
     """La cadena de mando completa (id → jefe_id), solo para saber cómo se relacionan dos líderes."""
     return dict(con.execute("SELECT id, jefe_id FROM lideres").fetchall())
@@ -626,7 +705,13 @@ def api_lideres():
         SELECT l.*, (SELECT COUNT(*) FROM vacantes v WHERE v.lider_id = l.id) AS vacantes,
                (SELECT j.nombre FROM lideres j WHERE j.id = l.jefe_id) AS jefe_nombre
         FROM lideres l WHERE {en_alcance} ORDER BY l.nombre""", params).fetchall()
-    return jsonify([_lider_publico(l) for l in rows_to_list(rows)])
+    # Quienes ya entraron a su equipo: aprobados por el líder y por la dirección.
+    integrantes: dict[int, list[dict]] = {}
+    for c in rows_to_list(con.execute("""
+            SELECT c.id, c.nombre, v.cargo, v.lider_id FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id
+            WHERE c.decision_direccion = 'aprobado' ORDER BY c.fecha_direccion""")):
+        integrantes.setdefault(c.pop("lider_id"), []).append(c)
+    return jsonify([{**_lider_publico(l), "integrantes": integrantes.get(l["id"], [])} for l in rows_to_list(rows)])
 
 
 @app.get("/api/lideres/jefe-sugerido")
@@ -889,7 +974,7 @@ def api_vacante(vid: int):
     vac["lider"] = _lider_publico(row_to_dict(con.execute("SELECT * FROM lideres WHERE id=?",
                                                           (vac["lider_id"],)).fetchone()))
     vac["candidatos"] = rows_to_list(con.execute(f"""
-        SELECT id, nombre, email, puntaje, decision_lider, creado,
+        SELECT id, nombre, email, puntaje, decision_lider, decision_direccion, creado,
                json_extract(resultado, '$.lecturas') AS lecturas,
                json_extract(resultado, '$.destaca') AS destaca,
                json_extract(resultado, '$.potencial.puntaje') AS potencial,
@@ -1213,7 +1298,9 @@ def api_candidato(cid: int):
     orden = [r[0] for r in con.execute(
         f"SELECT id FROM candidatos WHERE vacante_id=? ORDER BY {ORDEN_RANKING}", (cand["vacante_id"],))]
     completo = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
+    direccion = _direccion_de(_lideres_por_id(con), vac["lider_id"])
     return jsonify({"candidato": cand, "vacante": vac, "lider": lider, "empresa": _empresa(con),
+                    "direccion": _publico_direccion(direccion), "soy_direccion": _es_de(g.usuario, direccion),
                     "ranking": {"posicion": orden.index(cid) + 1, "total": len(orden)},
                     "redireccion": _redirecciones(con, _vacante_completa(con, cand["vacante_id"]), [completo]).get(cid),
                     "ia": {"activa": oraculo.activo(), "modelo": oraculo.modelo()}})
@@ -1314,6 +1401,13 @@ def api_editar_enlaces(cid: int):
     return jsonify({"puntaje": res["puntaje"], "enlaces": cand["enlaces"], "error_ia": cand.get("error_ia")})
 
 
+def _caso_direccion(con, cid: int) -> tuple[dict, dict | None]:
+    """Las decisiones del postulante, su vacante y quién da la aprobación final."""
+    fila = dict(con.execute("""SELECT c.decision_lider, c.decision_direccion, v.id AS vacante_id, v.lider_id, v.estado
+                               FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id WHERE c.id=?""", (cid,)).fetchone())
+    return fila, _direccion_de(_lideres_por_id(con), fila["lider_id"])
+
+
 @app.patch("/api/candidatos/<int:cid>/decision")
 @para_lideres
 def api_decision(cid: int):
@@ -1323,10 +1417,48 @@ def api_decision(cid: int):
         abort(400)
     con = get_db()
     _exigir_candidato(con, cid)
-    con.execute("UPDATE candidatos SET decision_lider=?, nota_lider=? WHERE id=?",
-                (decision, _texto(data, "nota") or None, cid))
+    fila, direccion = _caso_direccion(con, cid)
+    # Si el cargo es de quien ocupa la dirección, su aprobación como líder ya es la final.
+    propia = direccion is not None and direccion["id"] == fila["lider_id"] and _es_de(g.usuario, direccion)
+    if fila["decision_direccion"] and not propia:
+        return jsonify({"error": f"{direccion['nombre'] if direccion else 'La dirección'} ya dio su decisión final. "
+                                 "Para cambiar la del líder, primero debe retirar la suya."}), 409
+    nota = _texto(data, "nota") or None
+    con.execute("UPDATE candidatos SET decision_lider=?, nota_lider=? WHERE id=?", (decision, nota, cid))
+    if propia:
+        _guardar_direccion(con, cid, "aprobado" if decision == "aprobado" else None, None, g.usuario)
+        if decision == "aprobado" and data.get("cerrar_vacante"):
+            con.execute("UPDATE vacantes SET estado='cerrada' WHERE id=?", (fila["vacante_id"],))
     con.commit()
-    return jsonify({"decision": decision})
+    return jsonify({"decision": decision, "decision_direccion": "aprobado" if propia and decision == "aprobado" else
+                    (None if propia else fila["decision_direccion"])})
+
+
+@app.patch("/api/candidatos/<int:cid>/direccion")
+@para_lideres
+def api_decision_direccion(cid: int):
+    """Aprobación final: con ella, la persona que aprobó su líder entra a su equipo. Solo la da quien ocupa el
+    cargo de dirección que encabeza la cadena de mando de ese líder; un administrador no puede darla por serlo."""
+    data = request.get_json(force=True) or {}
+    decision = data.get("decision")
+    if decision not in ("aprobado", "rechazado", None):
+        abort(400)
+    con = get_db()
+    _exigir_candidato(con, cid)
+    fila, direccion = _caso_direccion(con, cid)
+    if not direccion:
+        return jsonify({"error": "La cadena de mando de este líder no tiene un cargo de dirección. "
+                                 "Asigna su jefe inmediato en Líderes."}), 409
+    if not _es_de(g.usuario, direccion):
+        return jsonify({"error": f"La aprobación final la da {direccion['nombre']} ({direccion['cargo']})."}), 403
+    if decision and fila["decision_lider"] != "aprobado":
+        return jsonify({"error": "Primero el líder debe aprobar a esta persona."}), 409
+    _guardar_direccion(con, cid, decision, _texto(data, "nota") or None, g.usuario)
+    cerrada = decision == "aprobado" and bool(data.get("cerrar_vacante")) and fila["estado"] == "abierta"
+    if cerrada:
+        con.execute("UPDATE vacantes SET estado='cerrada' WHERE id=?", (fila["vacante_id"],))
+    con.commit()
+    return jsonify({"decision_direccion": decision, "vacante_cerrada": cerrada})
 
 
 @app.delete("/api/candidatos/<int:cid>")
@@ -1383,7 +1515,9 @@ def preparar_db() -> None:
     viejos = {r["vacante_id"] for r in con.execute(
         "SELECT vacante_id FROM candidatos WHERE resultado NOT LIKE '%\"conflicto\": {%'"
         " OR resultado NOT LIKE '%\"lecturas\"%' OR resultado NOT LIKE '%\"evidencia_tipo\"%'"
-        " OR resultado NOT LIKE '%\"alertas\"%'" + ("" if not cartas_nuevas else " OR 1"))}
+        " OR resultado NOT LIKE '%\"alertas\"%'"
+        # 1.7.0: la recomendación ya no habla del «oráculo».
+        " OR resultado LIKE '%El oráculo ve en%'" + ("" if not cartas_nuevas else " OR 1"))}
     if viejos:
         with app.app_context():
             for vid in viejos:

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block titulo %}Oráculo de selección{% endblock %} · AGATA</title>
+  <title>{% block titulo %}Selección de talento{% endblock %} · AGATA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link rel="stylesheet" href="{{ recurso('css/styles.css') }}">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 44 40'><rect width='44' height='40' fill='%230b0810'/><path d='M22 3 L41 37 H3 Z' fill='none' stroke='%23d9b26a' stroke-width='2.4'/><path d='M12 27 Q22 17 32 27 Q22 35 12 27 Z' fill='none' stroke='%23d9b26a' stroke-width='2'/><circle cx='22' cy='27' r='3.4' fill='%23f2913f'/></svg>">
 </head>
 <body data-rol="{{ usuario.rol if usuario else '' }}" data-lider="{{ (usuario.lider_id or '') if usuario else '' }}">
@@ -22,7 +22,7 @@
         <path class="logo-delta" d="M22 2 L42 38 H2 Z"/>
         <g class="logo-parpado"><path d="M11 27 Q22 16 33 27 Q22 36 11 27 Z"/><circle cx="22" cy="27" r="3.4"/></g>
       </svg>
-      <span class="logo-texto">AGATA<small>Oráculo de selección</small></span>
+      <span class="logo-texto">AGATA<small>Selección de talento</small></span>
     </a>
     {% if usuario %}
     {% set admin = usuario.rol == 'admin' %}
@@ -84,10 +84,11 @@
   <footer class="pie">
     <div class="greca" aria-hidden="true"></div>
     <p class="inscripcion" lang="grc">ΓΝΩΘΙ ΣΕΑΥΤΟΝ</p>
-    <p><em>Conócete a ti mismo</em> · Nadie queda descartado · El líder decide</p>
+    <p><em>Conócete a ti mismo</em> · Nadie queda descartado · El líder y la dirección deciden</p>
+    {% if version %}<p class="pie-version">AGATA <span>v{{ version }}</span></p>{% endif %}
   </footer>
   <div id="toasts" aria-live="polite"></div>
-  <script type="module" src="{{ url_for('static', filename='js/nav.js') }}"></script>
+  <script type="module" src="{{ recurso('js/nav.js') }}"></script>
   {% block scripts %}{% endblock %}
 </body>
 </html>

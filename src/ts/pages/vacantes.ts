@@ -118,7 +118,7 @@ function pintarHabilidades(): void {
         <div class="campo campo-num"><label for="hab-${i}-peso">Peso</label><select id="hab-${i}-peso" data-k="peso">${opcionesNum(h.peso)}</select></div>
         <div class="campo campo-num"><label for="hab-${i}-nivel">Nivel</label><select id="hab-${i}-nivel" data-k="nivel">${opcionesNum(h.nivel)}</select></div>
         <div class="campo campo-tipo"><label for="hab-${i}-tipo">Tipo</label><select id="hab-${i}-tipo" data-k="tipo"
-            title="Las blandas no se buscan por palabras clave: el oráculo IA las lee o las deduce de los proyectos">
+            title="Las blandas no se buscan por palabras clave: la IA las lee o las deduce de los proyectos">
           <option value="tecnica" ${h.tipo === "tecnica" ? "selected" : ""}>Técnica</option>
           <option value="blanda" ${h.tipo === "blanda" ? "selected" : ""}>Blanda</option></select></div>
         <label class="campo hab-claves"><span class="sr">Palabras clave</span>
