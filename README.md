@@ -162,8 +162,10 @@ Un perfil que usa algún cargo no se puede eliminar: primero hay que cambiarle e
 
 **Aprobación de la dirección**: la decisión tiene dos pasos que siguen la línea de mando. Primero el **líder** del cargo
 aprueba; luego, el **cargo de dirección** que encabeza su cadena de mando (directora, director, gerente, rector o
-decano) da la **aprobación final**, y con ella la persona **entra al equipo del líder**. Solo esa persona puede darla:
-un administrador no, por serlo. Al aprobar, AGATA pregunta si se cierra la vacante (un cargo puede tener varias
+decano) da la **aprobación final**, y con ella la persona **entra al equipo del líder**. Para **pruebas**, con
+`AGATA_ADMIN_APRUEBA=1` en el `.env`, un **administrador** también puede darla (incluso si la cadena no tiene un cargo
+de dirección); queda registrado que la dio él. En producción se deja vacío
+y solo la dan los cargos de dirección. Al aprobar, AGATA pregunta si se cierra la vacante (un cargo puede tener varias
 plazas). Si el cargo es de la misma dirección, su aprobación como líder ya es la final. Quien ocupa la dirección ve en
 el **Panel** a quienes esperan su aprobación. Los integrantes aparecen en la ficha de su líder y en la **Red**, con una
 estrella, colgando de su líder. Una vez que la dirección decide, el líder no puede cambiar su decisión hasta que la

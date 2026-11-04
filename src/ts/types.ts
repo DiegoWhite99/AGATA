@@ -615,8 +615,12 @@ export interface Informe {
   redireccion: Redireccion | null;
   /** null si la cadena de mando del líder no tiene un cargo de dirección. */
   direccion: Direccion | null;
-  /** ¿Quien mira es esa dirección? Solo ella da la aprobación final. */
+  /** ¿Quien mira es esa dirección? (Si el cargo es suyo, su aprobación como líder ya es la final.) */
   soy_direccion: boolean;
+  /** ¿Quien mira puede dar la aprobación final? La dirección (o, en modo de prueba, un administrador). */
+  puedo_aprobar: boolean;
+  /** Modo de prueba (AGATA_ADMIN_APRUEBA=1): un administrador también da la aprobación final. */
+  admin_aprueba: boolean;
   ia: EstadoIA;
 }
 

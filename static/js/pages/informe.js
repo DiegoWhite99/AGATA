@@ -522,30 +522,34 @@ function bloqueDecision() {
 }
 function bloqueDireccion() {
     const { candidato: c, direccion: dir, lider: l } = datos;
-    const quien = dir ? `<strong>${esc(dir.nombre)}</strong> (${esc(dir.cargo)})` : "";
+    // La da quien ocupa la dirección de la cadena; en modo de prueba, también un administrador.
+    const puedo = datos.puedo_aprobar;
+    const oAdmin = datos.admin_aprueba && dir ? " o un administrador" : "";
+    const quien = dir ? `<strong>${esc(dir.nombre)}</strong> (${esc(dir.cargo)})` : datos.admin_aprueba ? "un administrador" : "";
     let cuerpo;
-    if (!dir) {
-        cuerpo = `<p class="nota">La cadena de mando de ${esc(l.nombre)} no tiene un cargo de dirección, así que nadie puede dar
-      la aprobación final. Asígnale su jefe inmediato en Líderes.</p>`;
-    }
-    else if (c.decision_direccion) {
+    if (c.decision_direccion) {
         const entro = c.decision_direccion === "aprobado";
         cuerpo = `<p class="${entro ? "direccion-entro" : "nota"}">${entro
             ? `★ ${esc(c.nombre)} es parte del equipo de ${esc(l.nombre)}.`
             : "✖ La dirección no aprobó su ingreso al equipo."}
-        <span class="meta-inline">${esc(c.direccion_por ?? dir.nombre)}${c.fecha_direccion ? ` · ${fecha(c.fecha_direccion)}` : ""}</span></p>
+        <span class="meta-inline">${esc(c.direccion_por ?? dir?.nombre ?? "")}${c.fecha_direccion ? ` · ${fecha(c.fecha_direccion)}` : ""}</span></p>
       ${c.nota_direccion ? `<p class="parrafo">«${esc(c.nota_direccion)}»</p>` : ""}
-      ${datos.soy_direccion && !direccionPropia()
+      ${puedo && !direccionPropia()
             ? `<div class="acciones-wrap no-print"><button class="btn btn-sec btn-sm" data-direccion="">Quitar decisión final</button></div>` : ""}`;
+    }
+    else if (!dir && !datos.admin_aprueba) {
+        cuerpo = `<p class="nota">La cadena de mando de ${esc(l.nombre)} no tiene un cargo de dirección, así que nadie puede dar
+      la aprobación final. Asígnale su jefe inmediato en Líderes.</p>`;
     }
     else if (c.decision_lider !== "aprobado") {
         cuerpo = direccionPropia()
             ? `<p class="meta">Este cargo es tuyo y ocupas la dirección: al aprobar como líder, la persona entra a tu equipo.</p>`
-            : `<p class="meta">Cuando ${esc(l.nombre)} apruebe, ${quien} da la aprobación final para que entre a su equipo.</p>`;
+            : `<p class="meta">Cuando ${esc(l.nombre)} apruebe, ${quien}${oAdmin} da la aprobación final para que entre a su equipo.
+          ${dir ? "" : ` La cadena de mando de ${esc(l.nombre)} no tiene un cargo de dirección.`}</p>`;
     }
     else {
-        cuerpo = `<p class="meta">◷ Espera la aprobación final de ${quien}.</p>
-      ${datos.soy_direccion ? `<div class="no-print">
+        cuerpo = `<p class="meta">◷ Espera la aprobación final de ${quien}${oAdmin ? " o de un administrador" : ""}.</p>
+      ${puedo ? `<div class="no-print">
           <textarea id="nota-direccion" rows="2" placeholder="Nota de la dirección (opcional)"></textarea>
           <div class="acciones-wrap">
             <button class="btn btn-ok btn-sm" data-direccion="aprobado">★ Aprobar ingreso al equipo</button>

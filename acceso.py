@@ -39,6 +39,12 @@ def sin_login() -> bool:
     return _servidor_de_desarrollo and os.environ.get("AGATA_SIN_LOGIN") == "1"
 
 
+def admin_aprueba() -> bool:
+    """Modo de prueba (AGATA_ADMIN_APRUEBA=1): un administrador también da la aprobación final, que de lo
+    contrario es solo del cargo de dirección de la cadena de mando. En producción se deja vacío."""
+    return os.environ.get("AGATA_ADMIN_APRUEBA") == "1"
+
+
 def faltantes() -> list[str]:
     """Variables que faltan para el inicio de sesión."""
     return [v for v in REQUERIDAS if not os.environ.get(v, "").strip()]

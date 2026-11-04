@@ -250,5 +250,8 @@ Para probar el login real en `http://localhost:5000`:
 - **Dónde quedan los datos:** en los servidores de PythonAnywhere en Estados Unidos. Hay una región en Europa si
   creas la cuenta en `eu.pythonanywhere.com`. Inclúyelo en la política de tratamiento.
 - **Quién tiene acceso:** revisa la lista de **Usuarios** de vez en cuando y retira a quien ya no lo necesite.
+- **Aprobación final solo de la dirección:** si para probar pusiste `AGATA_ADMIN_APRUEBA=1` en el `.env`, quítalo
+  (`sed -i '/^AGATA_ADMIN_APRUEBA=/d' ~/AGATA/.env`) y pulsa **Reload**. Sin esa línea, solo los cargos de dirección
+  dan la aprobación final.
 - **Cuando crezca:** si llegan muchos postulantes o hace falta leer portafolios, el plan pago más pequeño de
   PythonAnywhere quita esos límites. Otra opción es un servidor de la CUN.
