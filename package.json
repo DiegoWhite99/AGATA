@@ -1,6 +1,6 @@
 {
   "name": "agata",
-  "version": "1.7.0",
+  "version": "1.7.1",
   "private": true,
   "description": "AGATA: plataforma de match laboral con carta astral (frontend TypeScript)",
   "scripts": {

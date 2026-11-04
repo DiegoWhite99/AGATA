@@ -670,6 +670,68 @@ def requisitos(p: dict | None) -> dict | None:
     return req if any(req.values()) else None
 
 
+# --- Papelera: un perfil eliminado no se borra de inmediato ----------------------------------------
+# Sus archivos pasan a perfiles/.papelera/ (el catálogo no la lee), y desde ahí se restauran o se borran para siempre.
+
+PAPELERA = CARPETA / ".papelera"
+
+
+def _libre(carpeta: Path, nombre: str) -> Path:
+    """Una ruta que no pisa otro archivo: «X.xlsx», «X (1).xlsx», «X (2).xlsx»…"""
+    ruta, n = carpeta / nombre, 1
+    while ruta.exists():
+        ruta = carpeta / f"{Path(nombre).stem} ({n}){Path(nombre).suffix}"
+        n += 1
+    return ruta
+
+
+def eliminar(pid: str) -> list[str]:
+    """Pasa a la papelera todos los archivos (todas las versiones) del perfil. Devuelve sus nombres."""
+    PAPELERA.mkdir(parents=True, exist_ok=True)
+    movidos = []
+    for ruta in archivos():
+        if id_de(ruta.name) == pid:
+            ruta.rename(_libre(PAPELERA, ruta.name))
+            movidos.append(ruta.name)
+    return movidos
+
+
+def _en_papelera(nombre: str) -> Path | None:
+    """La ruta del archivo en la papelera, solo si el nombre es un archivo de ahí (nada de rutas ni «..»)."""
+    if not nombre or Path(nombre).name != nombre or nombre.startswith("."):
+        return None
+    ruta = PAPELERA / nombre
+    return ruta if ruta.is_file() else None
+
+
+def papelera() -> list[dict]:
+    """Los archivos eliminados, del más reciente al más antiguo."""
+    if not PAPELERA.is_dir():
+        return []
+    salida = [{"archivo": r.name, "titulo": _titulo(_base(r.name)), "id": id_de(r.name),
+               "eliminado": r.stat().st_ctime, "tamano": r.stat().st_size}
+              for r in PAPELERA.iterdir() if r.is_file() and not r.name.startswith(".")]
+    return sorted(salida, key=lambda x: -x["eliminado"])
+
+
+def restaurar(nombre: str) -> Path | None:
+    """Devuelve el archivo a la carpeta de perfiles (con otro nombre si ya hay uno igual)."""
+    ruta = _en_papelera(nombre)
+    if not ruta:
+        return None
+    destino = _libre(CARPETA, nombre)
+    ruta.rename(destino)
+    return destino
+
+
+def borrar_definitivo(nombre: str) -> bool:
+    ruta = _en_papelera(nombre)
+    if not ruta:
+        return False
+    ruta.unlink()
+    return True
+
+
 def guardar_archivo(archivo, nombre: str) -> tuple[Path, bool]:
     """Guarda un perfil subido en la carpeta. Devuelve (ruta, nuevo); si ya estaba idéntico, no lo duplica."""
     from werkzeug.utils import secure_filename

@@ -38,13 +38,15 @@
           <span class="nav-glifo" aria-hidden="true">☉&#xFE0E;</span><span>Panel</span></a>
         <a href="/vacantes" style="--i:1" {% if pagina == 'vacantes' %}aria-current="page"{% endif %}>
           <span class="nav-glifo" aria-hidden="true">△</span><span>Vacantes</span></a>
-        <a href="/lideres" style="--i:2" {% if pagina == 'lideres' %}aria-current="page"{% endif %}>
+        <a href="/postulantes" style="--i:2" {% if pagina == 'postulantes' %}aria-current="page"{% endif %}>
+          <span class="nav-glifo" aria-hidden="true">☽&#xFE0E;</span><span>Postulantes</span></a>
+        <a href="/lideres" style="--i:3" {% if pagina == 'lideres' %}aria-current="page"{% endif %}>
           <span class="nav-glifo" aria-hidden="true">♃&#xFE0E;</span><span>Líderes</span></a>
-        <a href="/red" style="--i:3" {% if pagina == 'red' %}aria-current="page"{% endif %}>
+        <a href="/red" style="--i:4" {% if pagina == 'red' %}aria-current="page"{% endif %}>
           <span class="nav-glifo" aria-hidden="true">☊&#xFE0E;</span><span>Red</span></a>
         {% if admin %}
         <div class="nav-grupo{% if en_config %} activo{% endif %}">
-          <button type="button" class="nav-grupo-boton" style="--i:4" aria-expanded="false" aria-controls="nav-config">
+          <button type="button" class="nav-grupo-boton" style="--i:5" aria-expanded="false" aria-controls="nav-config">
             <span class="nav-glifo" aria-hidden="true">⚙&#xFE0E;</span><span>Configuración <i class="nav-flecha" aria-hidden="true">▾</i></span>
           </button>
           <div class="nav-submenu" id="nav-config">

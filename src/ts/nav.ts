@@ -7,7 +7,7 @@ import { api } from "./api.js";
 const topbar = document.querySelector<HTMLElement>(".topbar");
 const nav = document.querySelector<HTMLElement>(".nav");
 const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const celular = window.matchMedia("(max-width: 900px)");
+const celular = window.matchMedia("(max-width: 940px)");
 
 /** Un botón que abre y cierra el panel que controla (aria-controls). */
 interface Desplegable {

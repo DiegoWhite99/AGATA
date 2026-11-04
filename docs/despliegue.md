@@ -241,7 +241,7 @@ Para probar el login real en `http://localhost:5000`:
 | Cambié el `.env` y no pasa nada | Hay que pulsar **Reload** en la pestaña **Web**. |
 | Entras con Google y vuelves a la pantalla de login | Abriste la dirección con `http://`. Activa **Force HTTPS** (paso 5) y usa `https://`. |
 | No aparecen los perfiles | Deben estar en `/home/TU_USUARIO/AGATA/perfiles/`. |
-| «Disk quota exceeded» | Borra respaldos viejos del servidor o postulaciones que ya no sirvan. Mira el uso en el **Dashboard**. |
+| «Disk quota exceeded» | Borra respaldos viejos del servidor, postulaciones que ya no sirvan o los perfiles de la **Papelera** (en **Perfiles**). Mira el uso en el **Dashboard**. |
 
 ## Antes de abrir convocatorias reales
 

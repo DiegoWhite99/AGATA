@@ -197,7 +197,7 @@ h3 { font-size: 1rem; }
 @media (max-width: 1100px) {
   .nav > a, .nav-grupo-boton { padding-inline: 0.6rem; letter-spacing: 0.12em; }
 }
-@media (max-width: 900px) {
+@media (max-width: 940px) {
   .topbar { flex-wrap: wrap; gap: 0.6rem; }
   .nav-boton { display: grid; place-items: center; width: 44px; height: 44px; margin-left: auto; background: none; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); cursor: pointer; }
   .nav-boton:hover, .nav-boton[aria-expanded="true"] { border-color: var(--gold); }
@@ -1013,6 +1013,22 @@ code { font-family: ui-monospace, "DejaVu Sans Mono", monospace; font-size: 0.86
 .chip-redireccion:hover { border-color: var(--aire); text-decoration: none; }
 .fila-no-cumple td { opacity: 0.62; }
 .fila-no-cumple td:nth-child(2) { opacity: 1; }
+/* Postulantes: el listado general */
+.filtros-postulantes { display: flex; flex-wrap: wrap; gap: 0.8rem 1rem; align-items: flex-end; margin-bottom: 1rem; }
+.filtros-postulantes .buscador { flex: 2 1 280px; max-width: none; }
+.filtros-postulantes .campo:not(.buscador) { flex: 1 1 180px; margin: 0; }
+.tabla-postulantes td { vertical-align: top; }
+.tabla-postulantes td:nth-child(1) { min-width: 15rem; }
+.tabla-postulantes td:nth-child(2) { min-width: 11rem; }
+.tabla-postulantes td:nth-child(3) { min-width: 10rem; }
+.tabla-postulantes td:nth-child(4) { min-width: 9.5rem; }
+.lecturas-mini { margin-top: 0.3rem; font-size: 0.82rem; white-space: nowrap; }
+.lecturas-mini b { font-weight: 600; }
+.tabla-postulantes td > .meta { display: block; }
+.tabla-postulantes .badge { margin-bottom: 0.2rem; }
+.nowrap { white-space: nowrap; }
+/* Perfiles: papelera */
+.papelera { margin-top: 2rem; border-style: dashed; }
 .alertas-informe { display: grid; gap: 0.4rem; margin: 0 0 1rem; }
 .alerta { margin: 0; padding: 0.55rem 0.9rem; border-radius: var(--radius); border: 1px solid #e6b05266; background: #e6b0520f; color: var(--decision); }
 .alerta-requisitos { border-color: #dc7a6277; background: #dc7a620f; color: var(--descartado); }

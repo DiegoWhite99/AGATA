@@ -6,7 +6,7 @@ import { api } from "./api.js";
 const topbar = document.querySelector(".topbar");
 const nav = document.querySelector(".nav");
 const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-const celular = window.matchMedia("(max-width: 900px)");
+const celular = window.matchMedia("(max-width: 940px)");
 const desplegables = [];
 function desplegable(boton, alAbrir) {
     if (!boton)

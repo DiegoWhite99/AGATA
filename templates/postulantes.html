@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block titulo %}Postulantes{% endblock %}
+{% block contenido %}
+<div id="postulantes">
+  <header class="pagina-cab">
+    <div>
+      <p class="eyebrow">Todas las postulaciones</p>
+      <h1>Postulantes</h1>
+      <p class="lead">Cada postulante con el cargo al que aplicó, su líder, su puntaje y en qué va: por decidir, falta
+        la aprobación de la dirección, ya está en el equipo o no avanzó.</p>
+    </div>
+    <button type="button" class="btn btn-sec" id="btn-csv" disabled>⤓ Descargar CSV</button>
+  </header>
+
+  <section class="tarjeta">
+    <div class="filtros-postulantes">
+      <label class="campo buscador"><span class="sr">Buscar postulante</span>
+        <input type="search" id="buscar" placeholder="Buscar por nombre, correo, cargo o líder…"></label>
+      <label class="campo"><span>Cargo</span><select id="f-cargo"><option value="">Todos los cargos</option></select></label>
+      <label class="campo"><span>Líder</span><select id="f-lider"><option value="">Todos los líderes</option></select></label>
+      <label class="campo"><span>Ordenar</span><select id="orden">
+        <option value="reciente">Más recientes</option>
+        <option value="puntaje">Mayor puntaje</option>
+        <option value="nombre">Nombre</option>
+      </select></label>
+    </div>
+    <div class="filtros" role="tablist" aria-label="Filtrar por estado" id="f-estado"></div>
+    <p class="meta" id="resumen" aria-live="polite"></p>
+    <div id="tabla-postulantes"><p class="cargando">Reuniendo a los postulantes…</p></div>
+  </section>
+</div>
+{% endblock %}
+{% block scripts %}<script type="module" src="{{ recurso('js/pages/postulantes.js') }}"></script>{% endblock %}

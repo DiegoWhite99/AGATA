@@ -385,6 +385,9 @@ def _error_groq(codigo: int) -> str:
         return "La consulta supera el límite por minuto de tu plan de Groq, aun recortada. Inténtalo de nuevo."
     if codigo == 429:
         return "Se alcanzó el límite de consultas por minuto de Groq: espera un minuto y vuelve a intentarlo."
+    if codigo in (401, 403):
+        return ("Groq no aceptó la clave de la IA (error " + str(codigo) + "): la GROQ_API_KEY del servidor no es válida "
+                "o fue revocada. Crea una nueva en console.groq.com/keys, cámbiala en el archivo .env y pulsa Reload.")
     return f"Groq respondió con error {codigo}."
 
 
@@ -417,7 +420,8 @@ def extraer_perfil(texto: str) -> dict | None:
                          {"role": "user", "content": "Documento:\n" + texto[:MAX_CV]}])
     except urllib.error.HTTPError as err:
         log.warning("Groq respondió %s al leer un perfil", err.code)
-        return {"error": f"La IA no pudo leer el documento (error {err.code})."}
+        return {"error": _error_groq(err.code) if err.code in (401, 403)
+                else f"La IA no pudo leer el documento (error {err.code})."}
     except Exception as err:
         log.warning("Fallo leyendo un perfil con Groq: %s", err)
         return {"error": "La IA no respondió a tiempo; se usó la lectura básica del documento."}

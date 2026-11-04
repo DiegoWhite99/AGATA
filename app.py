@@ -313,6 +313,12 @@ def pagina_informe(cid: int):
     return render_template("informe.html", pagina="vacantes", candidato_id=cid)
 
 
+@app.get("/postulantes")
+@para_lideres
+def pagina_postulantes():
+    return render_template("postulantes.html", pagina="postulantes")
+
+
 @app.get("/red")
 @para_lideres
 def pagina_red():
@@ -1161,6 +1167,44 @@ def api_subir_perfil():
     return jsonify({**_perfil_con_propuesta(con, perfil), "nuevo": nuevo}), 201 if nuevo else 200
 
 
+@app.delete("/api/perfiles/<pid>")
+def api_eliminar_perfil(pid: str):
+    """Pasa el perfil (todas sus versiones) a la papelera. No se puede mientras un cargo lo use: ese cargo
+    perdería los requisitos que ven la IA y el postulante."""
+    con = get_db()
+    ligadas = _vacantes_por_perfil(con).get(pid, [])
+    if ligadas:
+        return jsonify({"error": f"No se puede eliminar: lo usa{'n' if len(ligadas) > 1 else ''} "
+                                 f"{', '.join('«' + v['cargo'] + '»' for v in ligadas)}. Cámbiale el perfil a "
+                                 f"{'esos cargos' if len(ligadas) > 1 else 'ese cargo'} primero.",
+                        "vacantes": ligadas}), 409
+    movidos = perfiles.eliminar(pid)
+    if not movidos:
+        abort(404)
+    return jsonify({"eliminados": movidos})
+
+
+@app.get("/api/perfiles/papelera")
+def api_papelera_perfiles():
+    return jsonify(perfiles.papelera())
+
+
+@app.post("/api/perfiles/papelera/<archivo>/restaurar")
+def api_restaurar_perfil(archivo: str):
+    destino = perfiles.restaurar(archivo)
+    if not destino:
+        abort(404)
+    return jsonify({"archivo": destino.name, "id": perfiles.id_de(destino.name)})
+
+
+@app.delete("/api/perfiles/papelera/<archivo>")
+def api_borrar_perfil(archivo: str):
+    """Borra para siempre un archivo de la papelera."""
+    if not perfiles.borrar_definitivo(archivo):
+        abort(404)
+    return jsonify({"borrado": archivo})
+
+
 # --- API: postulaciones y candidatos ----------------------------------------
 
 def _evaluar(con, vac: dict, cand: dict, consultar_ia: bool = False) -> dict:
@@ -1280,6 +1324,30 @@ def api_postular(vid: int):
     if not g.usuario:  # el postulante no ve su puntaje ni el informe: eso es para el líder
         return jsonify({"recibida": True}), 201
     return jsonify({"id": cur.lastrowid, "puntaje": res["puntaje"]}), 201
+
+
+@app.get("/api/candidatos")
+@para_lideres
+def api_candidatos():
+    """Listado general de las postulaciones que ve el usuario: cada una con su cargo, su líder, su puntaje y en
+    qué va (por decidir, falta la dirección, en el equipo o no avanzó). Un líder ve las de su cadena de mando."""
+    con = get_db()
+    en_alcance, params = _filtro_alcance(con, "v.lider_id")
+    filas = rows_to_list(con.execute(f"""
+        SELECT c.id, c.nombre, c.email, c.telefono, c.ciudad, c.puntaje, c.decision_lider, c.decision_direccion,
+               c.creado,
+               json_extract(c.resultado, '$.lecturas') AS lecturas,
+               json_extract(c.resultado, '$.cumple_requisitos') AS cumple_requisitos,
+               json_extract(c.carta, '$.arquetipo') AS arquetipo,
+               v.id AS vacante_id, v.cargo, v.area, v.estado AS vacante_estado,
+               l.id AS lider_id, l.nombre AS lider_nombre, l.cargo AS lider_cargo
+        FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id JOIN lideres l ON l.id = v.lider_id
+        WHERE {en_alcance} ORDER BY c.creado DESC, c.id DESC""", params))
+    for f in filas:
+        f["lecturas"] = json.loads(f["lecturas"]) if f["lecturas"] else None
+        f["arquetipo"] = json.loads(f["arquetipo"]) if f["arquetipo"] else None
+        f["cumple_requisitos"] = None if f["cumple_requisitos"] is None else bool(f["cumple_requisitos"])
+    return jsonify(filas)
 
 
 @app.get("/api/candidatos/<int:cid>")

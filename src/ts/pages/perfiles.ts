@@ -1,7 +1,7 @@
 import { api, ApiError } from "../api.js";
 import { fichaPerfil, nivelRol } from "../perfil-ui.js";
-import { $, esc, iniciarDropzone, toast, vacio } from "../ui.js";
-import type { Perfil, PerfilDetalle } from "../types.js";
+import { $, confirmar, esc, fecha, iniciarDropzone, toast, vacio } from "../ui.js";
+import type { Perfil, PerfilDetalle, PerfilEliminado } from "../types.js";
 
 const dlg = $<HTMLDialogElement>("#dlg-perfil");
 const buscar = $<HTMLInputElement>("#buscar-perfil");
@@ -35,6 +35,9 @@ function tarjetaPerfil(p: Perfil): string {
     <footer class="tarjeta-pie acciones-wrap">
       <button class="btn btn-sec btn-sm" data-ver="${esc(p.id)}" ${p.error ? "disabled" : ""}>Ver perfil</button>
       <a class="btn btn-sm" href="/vacantes?nueva=1&perfil=${encodeURIComponent(p.id)}">+ Crear cargo</a>
+      <button class="btn btn-peligro btn-sm" data-eliminar="${esc(p.id)}" ${vacantes.length
+        ? `disabled title="No se puede eliminar: lo usa${vacantes.length > 1 ? "n" : ""} ${vacantes.length} cargo(s). Cámbiales el perfil primero."`
+        : ""}>Eliminar</button>
     </footer>
   </article>`;
 }
@@ -68,8 +71,68 @@ function pintar(): void {
 }
 
 async function cargar(): Promise<void> {
-  perfiles = await api.get<Perfil[]>("/api/perfiles");
+  const [lista, eliminados] = await Promise.all([
+    api.get<Perfil[]>("/api/perfiles"), api.get<PerfilEliminado[]>("/api/perfiles/papelera"),
+  ]);
+  perfiles = lista;
   pintar();
+  pintarPapelera(eliminados);
+}
+
+// --- Eliminar y papelera ---------------------------------------------------------------------
+// Un perfil con cargos ligados no se puede eliminar (esos cargos perderían sus requisitos). Uno sin cargos pasa
+// a la papelera con todas sus versiones; desde ahí se restaura o se borra para siempre.
+
+function pintarPapelera(eliminados: PerfilEliminado[]): void {
+  $("#papelera").hidden = !eliminados.length;
+  $("#papelera-lista").innerHTML = eliminados
+    .map((e) => `<li class="lista-item">
+        <div>
+          <span class="lista-titulo">${esc(e.titulo)}</span>
+          <span class="meta">${esc(e.archivo)} · eliminado el ${fecha(new Date(e.eliminado * 1000).toISOString())}</span>
+        </div>
+        <div class="lista-acciones">
+          <button class="btn btn-sec btn-sm" data-restaurar="${esc(e.archivo)}">↺ Restaurar</button>
+          <button class="btn btn-peligro btn-sm" data-borrar="${esc(e.archivo)}">Borrar para siempre</button>
+        </div>
+      </li>`)
+    .join("");
+}
+
+async function eliminar(pid: string): Promise<void> {
+  const p = perfiles.find((x) => x.id === pid);
+  if (!p) return;
+  const versiones = p.archivos?.length ?? 1;
+  if (!confirmar(`¿Eliminar el perfil «${p.titulo}»?${versiones > 1 ? ` Se van sus ${versiones} versiones.` : ""}\n\n` +
+      "Pasa a la papelera: desde ahí lo puedes restaurar.")) return;
+  try {
+    await api.del(`/api/perfiles/${encodeURIComponent(pid)}`);
+    toast(`«${p.titulo}» pasó a la papelera`);
+  } catch (err) {
+    toast(err instanceof ApiError ? err.message : "No se pudo eliminar el perfil.", "error");
+  }
+  await cargar();
+}
+
+async function restaurar(archivo: string): Promise<void> {
+  try {
+    await api.post(`/api/perfiles/papelera/${encodeURIComponent(archivo)}/restaurar`, {});
+    toast(`«${archivo}» volvió a Perfiles`);
+  } catch (err) {
+    toast(err instanceof ApiError ? err.message : "No se pudo restaurar.", "error");
+  }
+  await cargar();
+}
+
+async function borrar(archivo: string): Promise<void> {
+  if (!confirmar(`¿Borrar «${archivo}» para siempre?\n\nEsta acción no se puede deshacer.`)) return;
+  try {
+    await api.del(`/api/perfiles/papelera/${encodeURIComponent(archivo)}`);
+    toast(`«${archivo}» se borró para siempre`);
+  } catch (err) {
+    toast(err instanceof ApiError ? err.message : "No se pudo borrar.", "error");
+  }
+  await cargar();
 }
 
 function abrir(d: PerfilDetalle): void {
@@ -89,6 +152,12 @@ document.addEventListener("click", async (e) => {
   if (t.closest("[data-cerrar]")) dlg.close();
   const ver = t.closest<HTMLElement>("[data-ver]");
   if (ver) abrir(await api.get<PerfilDetalle>(`/api/perfiles/${encodeURIComponent(ver.dataset.ver!)}`));
+  const quitar = t.closest<HTMLButtonElement>("[data-eliminar]");
+  if (quitar && !quitar.disabled) await eliminar(quitar.dataset.eliminar!);
+  const volver = t.closest<HTMLElement>("[data-restaurar]");
+  if (volver) await restaurar(volver.dataset.restaurar!);
+  const borrarPara = t.closest<HTMLElement>("[data-borrar]");
+  if (borrarPara) await borrar(borrarPara.dataset.borrar!);
 });
 
 buscar.addEventListener("input", pintar);

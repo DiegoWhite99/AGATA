@@ -57,7 +57,7 @@ El login necesita en `.env` `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID` y `AGATA_S
 (ver `.env.example`). Para trabajar en tu computador sin login, pon `AGATA_SIN_LOGIN=1` y arranca con
 `python app.py`: entras como administrador. Detrás de un servidor WSGI ese modo no existe.
 
-**Menú:** a la vista va el trabajo del día (**Panel**, **Vacantes**, **Líderes** y **Red**); la configuración
+**Menú:** a la vista va el trabajo del día (**Panel**, **Vacantes**, **Postulantes**, **Líderes** y **Red**); la configuración
 (**Empresa**, **Perfiles** y **Usuarios**) va en el menú **Configuración**, solo para administradores, y la sesión en el
 círculo con tus iniciales. En el celular, todo queda en el botón ☰.
 
@@ -149,6 +149,16 @@ consejo para cada uno. En **Red**, la vista **Afinidad entre líderes** pone a l
 del líder central: más cerca y más brillantes cuanto mayor es la sinastría, con el porcentaje bajo cada uno; un clic en
 otro líder lo pasa al centro. Es solo informativa: no cambia el puntaje de ningún postulante. Un líder ve solo a los de
 su cadena de mando.
+
+**Postulantes** (`/postulantes`): el listado general de todas las postulaciones, cada una con el cargo al que
+aplicó, su líder, su puntaje (con su perfil profesional y su afinidad astral) y en qué va: por decidir, falta la
+dirección, en el equipo o no avanzó. Se busca por nombre, correo, cargo o líder, se filtra por cargo, líder y estado, y
+se descarga en CSV para Excel. Si alguien se postuló a varios cargos, se marca. Un líder ve solo los de su cadena de
+mando.
+
+**Eliminar perfiles**: en **Perfiles**, un perfil que no usa ningún cargo se puede **eliminar**: sale de Perfiles con
+todas sus versiones y queda en la **Papelera**, al final de la página, desde donde se restaura o se borra para siempre.
+Un perfil que usa algún cargo no se puede eliminar: primero hay que cambiarle el perfil a ese cargo.
 
 **Aprobación de la dirección**: la decisión tiene dos pasos que siguen la línea de mando. Primero el **líder** del cargo
 aprueba; luego, el **cargo de dirección** que encabeza su cadena de mando (directora, director, gerente, rector o

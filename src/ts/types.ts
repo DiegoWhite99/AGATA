@@ -572,6 +572,39 @@ export interface Direccion {
   cargo: string;
 }
 
+/** Una fila del listado general de postulantes. */
+export interface CandidatoGeneral {
+  id: number;
+  nombre: string;
+  email: string;
+  telefono: string | null;
+  ciudad: string | null;
+  puntaje: number;
+  decision_lider: Decision;
+  decision_direccion: Decision;
+  creado: string;
+  lecturas: Lecturas | null;
+  cumple_requisitos: boolean | null;
+  arquetipo: Arquetipo | null;
+  vacante_id: number;
+  cargo: string;
+  area: string;
+  vacante_estado: string;
+  lider_id: number;
+  lider_nombre: string;
+  lider_cargo: string;
+}
+
+/** Un archivo de perfil en la papelera. */
+export interface PerfilEliminado {
+  archivo: string;
+  titulo: string;
+  id: string;
+  /** Cuándo se eliminó (segundos desde 1970). */
+  eliminado: number;
+  tamano: number;
+}
+
 export interface Informe {
   candidato: Candidato;
   vacante: VacanteResumen;
