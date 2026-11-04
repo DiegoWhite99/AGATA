@@ -107,5 +107,19 @@
     </footer>
   </form>
 </dialog>
+<dialog id="dlg-afinidad" class="dialogo" aria-labelledby="dlg-afinidad-titulo">
+  <form method="dialog">
+    <header class="dialogo-cab">
+      <div><p class="eyebrow">Sinastría entre líderes · solo informativa</p>
+        <h2 id="dlg-afinidad-titulo">Afinidad con otros líderes</h2></div>
+      <button type="button" class="btn-icono" data-cerrar aria-label="Cerrar">✕</button>
+    </header>
+    <div class="dialogo-cuerpo" id="afinidad-cuerpo"></div>
+    <footer class="dialogo-pie">
+      <a class="btn btn-sec" id="afinidad-red" href="/red">☊&#xFE0E; Ver en la Red</a>
+      <button type="submit" class="btn">Cerrar</button>
+    </footer>
+  </form>
+</dialog>
 {% endblock %}
 {% block scripts %}<script type="module" src="{{ url_for('static', filename='js/pages/lideres.js') }}"></script>{% endblock %}

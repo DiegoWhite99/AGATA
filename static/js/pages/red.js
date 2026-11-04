@@ -1,6 +1,6 @@
 import { api } from "../api.js";
-import { COLOR_ELEMENTO } from "../astro-ui.js";
-import { $, esAdmin, esc, toast, vacio } from "../ui.js";
+import { COLOR_ELEMENTO, RELACION_LIDER } from "../astro-ui.js";
+import { $, $$, esAdmin, esc, toast, vacio } from "../ui.js";
 const TIPO_TXT = { empresa: "Empresa", lider: "Líder", vacante: "Cargo", candidato: "Postulante" };
 const ANILLO = 125;
 const MARGEN = 120;
@@ -9,8 +9,18 @@ const selCentro = $("#red-centro");
 const chkPostulantes = $("#red-postulantes");
 const chkCerradas = $("#red-cerradas");
 const tip = $("#red-tip");
+const opcionesCadena = $("#red-opciones-cadena");
+const pestanas = $$("[data-vista]");
 let datos;
+let vista = "cadena";
+let raizActual = null;
 const porId = new Map();
+const LEAD = {
+    cadena: "El líder es el nodo central y la red se despliega por la cadena de mando hacia sus cargos y sus postulantes. " +
+        "Cada conexión es una sinapsis: su grosor y su brillo muestran la sinastría con quien está arriba.",
+    afinidad: "Los demás líderes giran alrededor del nodo central: más cerca y más brillantes cuanto mayor es su afinidad " +
+        "(la sinastría entre sus cartas). Es solo informativa: no cambia el puntaje de ningún postulante.",
+};
 const nodo = (n) => ({
     arquetipo: null, fuerza: null, con: "", hijos: [], hojas: 1, angulo: 0, radio: 0, nivel: 0, ...n,
 });
@@ -53,6 +63,55 @@ function arbol(centro) {
     return nodo({
         id: "empresa", tipo: "empresa", nombre: datos.empresa?.nombre ?? "La empresa", detalle: "Carta de fundación",
         enlace: esAdmin ? "/empresa" : "/red", arquetipo: datos.empresa?.arquetipo ?? null, hijos: cabezas,
+    });
+}
+// --- Afinidad entre líderes: los demás líderes como subnodos alrededor del central ----------------
+/** Distancia al centro según la afinidad: con 100 % casi pegado al centro, con 0 % en el borde. */
+const R_CERCA = 150;
+const R_LEJOS = 410;
+const R_SIN_CARTA = R_LEJOS + 40;
+const radioAfinidad = (f) => R_CERCA + ((100 - f) / 100) * (R_LEJOS - R_CERCA);
+const ANILLOS_AFINIDAD = [80, 60, 40];
+/** `relacion` dice qué es b para a; vista desde b, el jefe y el equipo se invierten. */
+const INVERSA = { jefe: "equipo", equipo: "jefe" };
+function subnodo(l, fuerza, con, relacion) {
+    return nodo({
+        id: `l${l.id}`, tipo: "lider", nombre: l.nombre, detalle: l.cargo, enlace: `/lideres?afinidad=${l.id}`,
+        arquetipo: l.arquetipo, fuerza, con, relacion: relacion ? RELACION_LIDER[relacion] : undefined,
+        extra: fuerza != null ? `${fuerza.toFixed(0)} %` : "sin carta",
+    });
+}
+function redAfinidad(centro) {
+    if (!centro.startsWith("l")) {
+        const empresa = datos.empresa?.nombre ?? "la empresa";
+        return nodo({
+            id: "empresa", tipo: "empresa", nombre: datos.empresa?.nombre ?? "La empresa", detalle: "Carta de fundación",
+            enlace: esAdmin ? "/empresa" : "/red", arquetipo: datos.empresa?.arquetipo ?? null,
+            hijos: datos.lideres.map((l) => subnodo(l, l.sinastria_empresa, empresa, null)),
+        });
+    }
+    const id = Number(centro.slice(1));
+    const l = datos.lideres.find((x) => x.id === id);
+    const nombreCorto = l.nombre.split(" ")[0];
+    const hijos = datos.lideres
+        .filter((o) => o.id !== id)
+        .map((o) => {
+        const par = datos.afinidades.find((p) => (p.a === id && p.b === o.id) || (p.a === o.id && p.b === id));
+        const relacion = !par ? null : par.a === id ? par.relacion : INVERSA[par.relacion] ?? par.relacion;
+        return subnodo(o, par?.sinastria ?? null, nombreCorto, relacion);
+    });
+    return nodo({
+        id: `l${id}`, tipo: "lider", nombre: l.nombre, detalle: l.cargo, enlace: `/lideres?afinidad=${id}`,
+        arquetipo: l.arquetipo, hijos,
+    });
+}
+/** El más afín arriba y, en el sentido del reloj, los demás de mayor a menor afinidad. */
+function ubicarAfinidad(raiz) {
+    raiz.hijos.sort((a, b) => (b.fuerza ?? -1) - (a.fuerza ?? -1));
+    raiz.hijos.forEach((h, i) => {
+        h.nivel = 1;
+        h.angulo = (2 * Math.PI * i) / raiz.hijos.length;
+        h.radio = h.fuerza == null ? R_SIN_CARTA : radioAfinidad(h.fuerza);
     });
 }
 // --- Disposición radial: cada nivel en un anillo, cada rama con un ángulo según sus hojas ---------
@@ -119,7 +178,8 @@ function figura(n, c, centro) {
       <circle r="${r}" fill="${color}" fill-opacity="0.22" stroke="${color}" stroke-width="2" class="nodo-cuerpo"/>
       <text class="nodo-iniciales" dy="0.35em">${esc(n.tipo === "empresa" ? "✦" : iniciales)}</text>`;
         etiqueta = `<text class="nodo-nombre" y="${r + 20}">${esc(corto(n.nombre, 26))}</text>
-      ${n.arquetipo ? `<text class="nodo-rol" y="${r + 36}" fill="${color}">${esc(n.arquetipo.nombre)}</text>` : ""}`;
+      ${n.arquetipo ? `<text class="nodo-rol" y="${r + 36}" fill="${color}">${esc(n.arquetipo.nombre)}</text>` : ""}
+      ${n.extra ? `<text class="nodo-afinidad${n.fuerza == null ? " sin-dato" : ""}" y="${r + (n.arquetipo ? 53 : 37)}">${esc(n.extra)}</text>` : ""}`;
     }
     return `<g class="nodo nodo-${n.tipo}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" data-n="${n.id}"
       tabindex="0" role="link" aria-label="${esc(`${TIPO_TXT[n.tipo]}: ${n.nombre}${n.arquetipo ? `, ${n.arquetipo.nombre}` : ""}`)}">
@@ -136,27 +196,56 @@ function etiquetaFuera(n, d) {
       text-anchor="${ancla}">${esc(texto)}</text>`;
 }
 function pintar() {
-    const raiz = arbol(selCentro.value);
+    const enAfinidad = vista === "afinidad";
+    const raiz = enAfinidad ? redAfinidad(selCentro.value) : arbol(selCentro.value);
+    raizActual = raiz;
     porId.clear();
-    contarHojas(raiz);
-    ubicar(raiz, 0, 2 * Math.PI, 0);
+    if (enAfinidad) {
+        ubicarAfinidad(raiz);
+    }
+    else {
+        contarHojas(raiz);
+        ubicar(raiz, 0, 2 * Math.PI, 0);
+    }
     const lista = todos(raiz);
     lista.forEach((n) => porId.set(n.id, n));
     const niveles = Math.max(...lista.map((n) => n.nivel));
-    const c = niveles * ANILLO + MARGEN;
+    const c = enAfinidad ? R_SIN_CARTA + MARGEN : niveles * ANILLO + MARGEN;
+    // En la vista de afinidad, los anillos de referencia (80 %, 60 %, 40 %) llegan hasta el nodo más lejano.
+    const lejos = Math.max(0, ...lista.map((n) => n.radio));
+    const radiosGuia = enAfinidad ? ANILLOS_AFINIDAD.map(radioAfinidad).filter((r, i) => i === 0 || r <= lejos + 30) : [];
     // El lienzo se encuadra a los nodos (con aire para las etiquetas), no al círculo completo.
     const puntos = lista.map((n) => polar(c, n.radio, n.angulo));
+    for (const r of radiosGuia)
+        puntos.push([c - r, c - r], [c + r, c + r]);
     const [x0, x1] = [Math.min(...puntos.map((p) => p[0])) - MARGEN, Math.max(...puntos.map((p) => p[0])) + MARGEN];
     const [y0, y1] = [Math.min(...puntos.map((p) => p[1])) - 70, Math.max(...puntos.map((p) => p[1])) + 80];
     const caja = `${x0.toFixed(0)} ${y0.toFixed(0)} ${(x1 - x0).toFixed(0)} ${(y1 - y0).toFixed(0)}`;
-    const anillos = Array.from({ length: niveles }, (_, i) => `<circle cx="${c}" cy="${c}" r="${(i + 1) * ANILLO}" class="red-anillo"/>`).join("");
+    // Las etiquetas de los anillos van en el hueco entre el último subnodo y el primero (el más afín, arriba).
+    const anguloTxt = raiz.hijos.length > 1 ? -Math.PI / raiz.hijos.length : Math.PI;
+    const anillos = enAfinidad
+        ? radiosGuia.map((r, i) => {
+            const [tx, ty] = polar(c, r, anguloTxt);
+            return `<circle cx="${c}" cy="${c}" r="${r.toFixed(1)}" class="red-anillo"/>
+          <text class="red-anillo-txt" x="${tx.toFixed(1)}" y="${(ty + 4).toFixed(1)}">${ANILLOS_AFINIDAD[i]} %</text>`;
+        }).join("")
+        : Array.from({ length: niveles }, (_, i) => `<circle cx="${c}" cy="${c}" r="${(i + 1) * ANILLO}" class="red-anillo"/>`).join("");
     const conexiones = lista.flatMap((p) => p.hijos.map((h) => sinapsis(p, h, c))).join("");
     const nodos = [...lista].reverse().map((n) => figura(n, c, n === raiz)).join("");
-    $("#red").innerHTML = raiz.hijos.length || raiz.tipo !== "empresa"
-        ? `<svg viewBox="${caja}" class="red-svg" role="img" aria-label="Red de ${esc(raiz.nombre)}">
-        <defs><filter id="brillo"><feGaussianBlur stdDeviation="9"/></filter></defs>
-        ${anillos}<g class="conexiones">${conexiones}</g><g>${nodos}</g></svg>`
-        : vacio("☊", "Aún no hay red", "Registra líderes para ver cómo se despliega la cadena de mando.", `<a class="btn" href="/lideres">Ir a Líderes</a>`);
+    const svg = `<svg viewBox="${caja}" class="red-svg" role="img" aria-label="${enAfinidad ? "Afinidad" : "Red"} de ${esc(raiz.nombre)}">
+      <defs><filter id="brillo"><feGaussianBlur stdDeviation="9"/></filter></defs>
+      ${anillos}<g class="conexiones">${conexiones}</g><g>${nodos}</g></svg>`;
+    const sinCartaCentral = enAfinidad && raiz.tipo === "lider" && !datos.lideres.find((l) => `l${l.id}` === raiz.id)?.tiene_carta;
+    $("#red").innerHTML = !enAfinidad
+        ? raiz.hijos.length || raiz.tipo !== "empresa"
+            ? svg
+            : vacio("☊", "Aún no hay red", "Registra líderes para ver cómo se despliega la cadena de mando.", `<a class="btn" href="/lideres">Ir a Líderes</a>`)
+        : !raiz.hijos.length
+            ? vacio("☊", "No hay otros líderes para comparar", esAdmin ? "Registra más líderes para ver su afinidad." : "Tu cadena de mando no tiene más líderes.")
+            : sinCartaCentral
+                ? vacio("☊", `${raiz.nombre} no tiene carta astral`, "Registra su fecha, hora y ciudad de nacimiento para medir su afinidad.", `<a class="btn" href="/lideres">Ir a Líderes</a>`)
+                : svg;
+    $("#red-leyenda").innerHTML = leyenda();
     pintarRoles(lista);
 }
 function pintarRoles(lista) {
@@ -188,7 +277,10 @@ function leyenda() {
     <span><i class="forma-red forma-vacante"></i>Cargo</span>
     <span><i class="forma-red forma-candidato"></i>Postulante</span>
     <span><i class="forma-red forma-potencial"></i>Potencial alto</span>
-    <span class="meta-inline">Sinapsis más gruesa y brillante = más sinastría · punteada = falta una carta</span>`;
+    ${vista === "afinidad"
+        ? `<span class="meta-inline">Más cerca del centro y más brillante = más afinidad · los anillos marcan 80 %, 60 % y 40 % ·
+          punteada = falta una carta · clic en un líder para ponerlo en el centro</span>`
+        : `<span class="meta-inline">Sinapsis más gruesa y brillante = más sinastría · punteada = falta una carta</span>`}`;
 }
 // --- Detalle al pasar el cursor y navegación --------------------------------------------
 function mostrarTip(n, x, y) {
@@ -196,8 +288,11 @@ function mostrarTip(n, x, y) {
     tip.innerHTML = `<p class="eyebrow">${TIPO_TXT[n.tipo]}</p><strong>${esc(n.nombre)}</strong>
     <p class="meta">${esc(n.detalle)}</p>
     ${n.arquetipo ? `<p class="arquetipo" style="--c:${COLOR_ELEMENTO[n.arquetipo.elemento]}"><b>✦ ${esc(n.arquetipo.nombre)}</b><span>${esc(n.arquetipo.rol)}</span></p>` : ""}
-    ${n.fuerza != null ? `<p class="meta">Sinapsis con ${esc(n.con)}: <strong>${n.fuerza.toFixed(0)}%</strong></p>` : ""}
-    ${n.potencial ? `<p class="meta">✦ Potencial de crecimiento alto</p>` : ""}`;
+    ${n.relacion ? `<p class="meta">Para ${esc(n.con)}: ${esc(n.relacion.toLowerCase())}</p>` : ""}
+    ${n.fuerza != null ? `<p class="meta">${vista === "afinidad" ? "Afinidad" : "Sinapsis"} con ${esc(n.con)}: <strong>${n.fuerza.toFixed(0)}%</strong></p>` : ""}
+    ${vista === "afinidad" && n.fuerza == null && n !== raizActual ? `<p class="meta">Falta una carta para medir la afinidad.</p>` : ""}
+    ${n.potencial ? `<p class="meta">✦ Potencial de crecimiento alto</p>` : ""}
+    ${vista === "afinidad" && n.tipo === "lider" ? `<p class="meta"><em>${n === raizActual ? "Clic para ver la lectura completa" : "Clic para ponerlo en el centro"}</em></p>` : ""}`;
     tip.hidden = false;
     const ancho = tip.offsetWidth;
     tip.style.left = `${Math.min(x - lienzo.left + 16, lienzo.width - ancho - 8)}px`;
@@ -221,22 +316,51 @@ red.addEventListener("focusin", (e) => {
         mostrarTip(n, r.right, r.top);
     }
 });
+/** En la vista de afinidad, un líder de alrededor pasa al centro; si no, se abre su página. */
+function activar(n) {
+    if (vista === "afinidad" && n.tipo === "lider" && n !== raizActual) {
+        selCentro.value = n.id;
+        tip.hidden = true;
+        alCambiar();
+        $(`[data-n="${n.id}"]`).focus();
+        return;
+    }
+    location.href = n.enlace;
+}
 red.addEventListener("click", (e) => {
     const g = e.target.closest("[data-n]");
     const n = g && porId.get(g.dataset.n);
     if (n)
-        location.href = n.enlace;
+        activar(n);
 });
 red.addEventListener("keydown", (e) => {
     const g = e.target.closest("[data-n]");
     const n = g && porId.get(g.dataset.n);
     if (n && (e.key === "Enter" || e.key === " ")) {
         e.preventDefault();
-        location.href = n.enlace;
+        activar(n);
     }
 });
+/** La vista y el centro quedan en la dirección, para volver o compartir el mismo punto de vista. */
+function alCambiar() {
+    history.replaceState(null, "", `?centro=${selCentro.value}${vista === "afinidad" ? "&vista=afinidad" : ""}`);
+    pintar();
+}
+function ponerVista(v) {
+    vista = v;
+    for (const p of pestanas)
+        p.setAttribute("aria-selected", String(p.dataset.vista === v));
+    opcionesCadena.hidden = v === "afinidad";
+    $("#red-lead").textContent = LEAD[v];
+}
+for (const p of pestanas) {
+    p.addEventListener("click", () => {
+        ponerVista(p.dataset.vista);
+        alCambiar();
+    });
+}
 for (const control of [selCentro, chkPostulantes, chkCerradas])
-    control.addEventListener("change", pintar);
+    control.addEventListener("change", alCambiar);
 api
     .get("/api/red")
     .then((d) => {
@@ -248,7 +372,7 @@ api
     const pedido = new URLSearchParams(location.search).get("centro");
     selCentro.value = pedido && selCentro.querySelector(`option[value="${pedido}"]`) ? pedido
         : cabezas.length === 1 ? `l${cabezas[0].id}` : "empresa";
-    $("#red-leyenda").innerHTML = leyenda();
+    ponerVista(new URLSearchParams(location.search).get("vista") === "afinidad" ? "afinidad" : "cadena");
     pintar();
 })
     .catch(() => toast("No se pudo cargar la red.", "error"));

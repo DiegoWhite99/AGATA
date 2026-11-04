@@ -153,7 +153,7 @@ Para terminar, arriba en la pestaña **Web**, pulsa el botón verde **Reload TU_
 Los perfiles reales no están en GitHub, porque traen nombres de personas. Tienes dos formas de subirlos:
 
 - Pestaña **Files** → entra a `AGATA/` → crea la carpeta `perfiles` → **Upload a file** con cada perfil.
-- O desde AGATA, ya con sesión de administrador: **Perfiles** → agregar perfil.
+- O desde AGATA, ya con sesión de administrador: **Configuración** → **Perfiles** → agregar perfil.
 
 ## 7. Autoriza tu dirección en Firebase
 
@@ -167,8 +167,8 @@ En Firebase: **Authentication** (también aparece en la barra izquierda, en «Ac
 
 1. Abre `https://TU_USUARIO.pythonanywhere.com` → **Entrar con Google** con el correo de `AGATA_ADMINS`. Entras como
    administrador.
-2. Arma la base real, que arranca vacía: **Empresa** (su carta) → **Líderes** (con su correo y su jefe inmediato) →
-   **Perfiles** → **Cargos y vacantes**.
+2. Arma la base real, que arranca vacía: **Configuración → Empresa** (su carta) → **Líderes** (con su correo y su
+   jefe inmediato) → **Configuración → Perfiles** → **Vacantes**.
 3. Comparte con los postulantes el link de cada vacante (**Copiar link**). No piden iniciar sesión, y al final ven una
    confirmación, sin el puntaje.
 
@@ -179,7 +179,7 @@ En Firebase: **Authentication** (también aparece en la barra izquierda, en «Ac
   ```bash
   sed -i 's/^AGATA_ADMINS=.*/AGATA_ADMINS=tu.correo@gmail.com,otra.persona@cun.edu.co/' ~/AGATA/.env && grep ^AGATA_ADMINS ~/AGATA/.env
   ```
-- **Desde AGATA** → **Usuarios** → **Dar acceso**, con su correo y su rol:
+- **Desde AGATA** → **Configuración** → **Usuarios** → **Dar acceso**, con su correo y su rol:
   - **Administrador**: gestiona todo.
   - **Líder**: ve los cargos de su cadena de mando. Para este rol, antes hay que crear su ficha en **Líderes**. Si el
     correo coincide con el de la ficha, se liga solo.
@@ -194,6 +194,9 @@ En la cuenta gratuita, la web app se apaga si nadie la renueva. **Cada mes**, en
 botón amarillo **Run until 1 month from today**. PythonAnywhere te avisa por correo una semana antes de apagarla.
 
 ## 10. Actualizar la versión
+
+**Los datos se conservan.** `git pull` solo trae código: `agata.db` (la base), `uploads/` (las hojas de vida), `.env`
+y `perfiles/` no están en git, así que no se tocan. Si quieres ir a la segura, haz antes el respaldo del paso 11.
 
 En una consola **Bash**:
 

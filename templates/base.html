@@ -26,26 +26,51 @@
     </a>
     {% if usuario %}
     {% set admin = usuario.rol == 'admin' %}
-    <nav class="nav" aria-label="Principal">
-      <a href="/" style="--i:0" {% if pagina == 'panel' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">☉&#xFE0E;</span><span>Panel</span></a>
-      {% if admin %}<a href="/empresa" style="--i:1" {% if pagina == 'empresa' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">♁&#xFE0E;</span><span>Empresa</span></a>{% endif %}
-      <a href="/lideres" style="--i:2" {% if pagina == 'lideres' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">♃&#xFE0E;</span><span>Líderes</span></a>
-      {% if admin %}<a href="/perfiles" style="--i:3" {% if pagina == 'perfiles' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">♄&#xFE0E;</span><span>Perfiles</span></a>{% endif %}
-      <a href="/vacantes" style="--i:4" {% if pagina == 'vacantes' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">△</span><span>Cargos y vacantes</span></a>
-      <a href="/red" style="--i:5" {% if pagina == 'red' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">☊&#xFE0E;</span><span>Red</span></a>
-      {% if admin %}<a href="/usuarios" style="--i:6" {% if pagina == 'usuarios' %}aria-current="page"{% endif %}>
-        <span class="nav-glifo" aria-hidden="true">⚷&#xFE0E;</span><span>Usuarios</span></a>{% endif %}
-    </nav>
-    <div class="sesion">
-      <span class="sesion-quien" title="{{ usuario.email }}">{{ usuario.nombre or usuario.email }}
-        <small>{{ 'Administrador' if admin else 'Líder' }}</small></span>
-      {% if not usuario.local %}<button type="button" class="btn btn-sec btn-sm" id="btn-salir">Salir</button>{% endif %}
+    {% set quien = usuario.nombre or usuario.email or 'AGATA' %}
+    {% set en_config = pagina in ('empresa', 'perfiles', 'usuarios') %}
+    {# En celular, el menú se abre con este botón; en pantallas anchas el botón no se ve. #}
+    <button type="button" class="nav-boton" id="nav-boton" aria-expanded="false" aria-controls="nav-menu">
+      <span class="nav-boton-barras" aria-hidden="true"><i></i><i></i><i></i></span><span class="sr">Menú</span>
+    </button>
+    <div class="nav-menu" id="nav-menu">
+      <nav class="nav" aria-label="Principal">
+        <a href="/" style="--i:0" {% if pagina == 'panel' %}aria-current="page"{% endif %}>
+          <span class="nav-glifo" aria-hidden="true">☉&#xFE0E;</span><span>Panel</span></a>
+        <a href="/vacantes" style="--i:1" {% if pagina == 'vacantes' %}aria-current="page"{% endif %}>
+          <span class="nav-glifo" aria-hidden="true">△</span><span>Vacantes</span></a>
+        <a href="/lideres" style="--i:2" {% if pagina == 'lideres' %}aria-current="page"{% endif %}>
+          <span class="nav-glifo" aria-hidden="true">♃&#xFE0E;</span><span>Líderes</span></a>
+        <a href="/red" style="--i:3" {% if pagina == 'red' %}aria-current="page"{% endif %}>
+          <span class="nav-glifo" aria-hidden="true">☊&#xFE0E;</span><span>Red</span></a>
+        {% if admin %}
+        <div class="nav-grupo{% if en_config %} activo{% endif %}">
+          <button type="button" class="nav-grupo-boton" style="--i:4" aria-expanded="false" aria-controls="nav-config">
+            <span class="nav-glifo" aria-hidden="true">⚙&#xFE0E;</span><span>Configuración <i class="nav-flecha" aria-hidden="true">▾</i></span>
+          </button>
+          <div class="nav-submenu" id="nav-config">
+            <a href="/empresa" {% if pagina == 'empresa' %}aria-current="page"{% endif %}>
+              <span class="nav-glifo" aria-hidden="true">♁&#xFE0E;</span><span>Empresa<small>Su carta de fundación</small></span></a>
+            <a href="/perfiles" {% if pagina == 'perfiles' %}aria-current="page"{% endif %}>
+              <span class="nav-glifo" aria-hidden="true">♄&#xFE0E;</span><span>Perfiles<small>Los perfiles de cargo</small></span></a>
+            <a href="/usuarios" {% if pagina == 'usuarios' %}aria-current="page"{% endif %}>
+              <span class="nav-glifo" aria-hidden="true">⚷&#xFE0E;</span><span>Usuarios<small>Quién entra a AGATA</small></span></a>
+          </div>
+        </div>
+        {% endif %}
+      </nav>
+      <div class="sesion">
+        <button type="button" class="sesion-boton" id="sesion-boton" aria-expanded="false" aria-controls="sesion-menu"
+                title="{{ quien }}">
+          <span class="sesion-avatar" aria-hidden="true">{{ (quien.split()[:2] | map('first') | join | upper) or '✦' }}</span>
+          <span class="sr">Tu sesión: {{ quien }}</span>
+        </button>
+        <div class="sesion-menu" id="sesion-menu">
+          <p class="sesion-quien"><strong>{{ quien }}</strong>
+            {% if usuario.email and usuario.email != quien %}<span>{{ usuario.email }}</span>{% endif %}
+            <small>{{ 'Administrador' if admin else 'Líder' }}</small></p>
+          {% if not usuario.local %}<button type="button" class="btn btn-sec btn-sm" id="btn-salir">Salir</button>{% endif %}
+        </div>
+      </div>
     </div>
     {% endif %}
   </header>

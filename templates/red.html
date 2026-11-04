@@ -6,13 +6,20 @@
     <div>
       <p class="eyebrow">Sinapsis del equipo</p>
       <h1>La red</h1>
-      <p class="lead">El líder es el nodo central y la red se despliega por la cadena de mando hacia sus cargos y sus
-        postulantes. Cada conexión es una sinapsis: su grosor y su brillo muestran la sinastría con quien está arriba.</p>
+      <p class="lead" id="red-lead">El líder es el nodo central y la red se despliega por la cadena de mando hacia sus
+        cargos y sus postulantes. Cada conexión es una sinapsis: su grosor y su brillo muestran la sinastría con quien
+        está arriba.</p>
     </div>
     <div class="red-controles">
+      <div class="filtros red-vista" role="tablist" aria-label="Qué muestra la red">
+        <button type="button" class="filtro" role="tab" data-vista="cadena" aria-selected="true">Cadena de mando</button>
+        <button type="button" class="filtro" role="tab" data-vista="afinidad" aria-selected="false">Afinidad entre líderes</button>
+      </div>
       <div class="campo"><label for="red-centro">Nodo central</label><select id="red-centro"></select></div>
-      <label class="campo-check"><input type="checkbox" id="red-postulantes" checked><span>Mostrar postulantes</span></label>
-      <label class="campo-check"><input type="checkbox" id="red-cerradas"><span>Incluir vacantes cerradas</span></label>
+      <div id="red-opciones-cadena">
+        <label class="campo-check"><input type="checkbox" id="red-postulantes" checked><span>Mostrar postulantes</span></label>
+        <label class="campo-check"><input type="checkbox" id="red-cerradas"><span>Incluir vacantes cerradas</span></label>
+      </div>
     </div>
   </header>
 

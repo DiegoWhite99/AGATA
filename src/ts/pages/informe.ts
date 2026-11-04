@@ -1,6 +1,6 @@
 import { api, ApiError } from "../api.js";
 import {
-  chipArquetipo, fichaConflicto, MODOS, panelAtributos, rejillaSinastria, TEMA_CORTO,
+  chipArquetipo, fichaConflicto, itemAspecto, itemConflicto, MODOS, panelAtributos, rejillaSinastria, TEMA_CORTO,
   tarjetaCarta,
 } from "../astro-ui.js";
 import { radar } from "../radar.js";
@@ -8,7 +8,7 @@ import {
   $, $$, anillo, badgeDecision, barra, colorPuntaje, confirmar, esAdmin, esc, fecha, laurel, mostrarErrores, toast, vacio,
 } from "../ui.js";
 import type {
-  AspectoConflicto, CampoEnlace, Carta, Decision, DictamenIA, EnlaceBase, EnlaceGithub, EnlacePagina, EnlaceRepositorio,
+  CampoEnlace, Carta, Decision, DictamenIA, EnlaceBase, EnlaceGithub, EnlacePagina, EnlaceRepositorio,
   Informe, ResultadoIA, Sinastria,
 } from "../types.js";
 
@@ -111,16 +111,7 @@ function detalleSinastria(sin: Sinastria | null, otra: Carta | null, nombreOtra:
   if (!sin || !otra) {
     return `<p class="nota">No hay carta de ${esc(nombreOtra)} para comparar.</p>`;
   }
-  const aspectos = sin.aspectos
-    .map(
-      (a) => `<li class="aspecto ${a.armonico ? "armonico" : "tenso"}">
-        <span class="aspecto-glifos">${a.glifo_a}<b>${a.glifo}</b>${a.glifo_b}</span>
-        <div><strong>${esc(a.astro_a)} en ${esc(a.signo_a)} ${esc(a.aspecto.toLowerCase())} ${esc(a.astro_b)} en ${esc(a.signo_b)}</strong>
-          <p>${esc(a.lectura)}</p></div>
-        <span class="meta">orbe ${a.orbe}°</span>
-      </li>`,
-    )
-    .join("");
+  const aspectos = sin.aspectos.map(itemAspecto).join("");
   return `<div class="sinastria-detalle">
       <div>${rejillaSinastria(sin, c.carta, otra, primerNombre(c.nombre), nombreOtra)}</div>
       <div><h3 class="subtitulo">Aspectos más fuertes</h3><ul class="aspectos">${aspectos || `<li class="meta">Sin aspectos dentro de orbe.</li>`}</ul></div>
@@ -163,13 +154,6 @@ function seccionSinastria(): string {
 }
 
 // --- Manejo de conflictos ----------------------------------------------------------
-
-function itemConflicto(a: AspectoConflicto, clase: string): string {
-  return `<li class="aspecto ${clase}">
-      <span class="aspecto-glifos">${a.glifo_a}<b>${a.glifo}</b>${a.glifo_b}</span>
-      <div><strong>${esc(a.astro_a)} ${esc(a.aspecto.toLowerCase())} ${esc(a.astro_b)}</strong><p>${esc(a.lectura)}</p></div>
-    </li>`;
-}
 
 function seccionConflictos(): string {
   const { candidato: c, lider: l, empresa: e } = datos;

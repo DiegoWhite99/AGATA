@@ -163,10 +163,33 @@ export interface JefeSugerido {
 }
 
 /** Lo que dibuja la sección Red. */
+/** Qué es un líder para otro en la cadena de mando. */
+export type RelacionLider = "jefe" | "equipo" | "par" | "cadena" | "otra";
+
+/** Afinidad de un líder con otro: la misma lectura astral que con un postulante, solo informativa. */
+export interface AfinidadLider {
+  id: number;
+  nombre: string;
+  cargo: string;
+  area: string;
+  relacion: RelacionLider;
+  arquetipo: Arquetipo | null;
+  /** null si alguno de los dos no tiene carta. */
+  sinastria: (Pick<Sinastria, "puntaje" | "armonicos" | "tensos" | "elemental"> & { aspectos: AspectoSinastria[] }) | null;
+  conflicto: DinamicaConflicto | null;
+}
+
+export interface AfinidadesLider {
+  lider: { id: number; nombre: string; cargo: string; tiene_carta: boolean };
+  afinidades: AfinidadLider[];
+}
+
 export interface DatosRed {
   empresa: { nombre: string; arquetipo: Arquetipo | null } | null;
   lideres: { id: number; nombre: string; cargo: string; area: string; jefe_id: number | null; arquetipo: Arquetipo | null;
-             sinastria_jefe: number | null; sinastria_empresa: number | null }[];
+             tiene_carta: boolean; sinastria_jefe: number | null; sinastria_empresa: number | null }[];
+  /** Sinastría de cada pareja de líderes (null si a alguno le falta la carta); `relacion` es lo que b es para a. */
+  afinidades: { a: number; b: number; sinastria: number | null; relacion: RelacionLider }[];
   vacantes: { id: number; cargo: string; area: string; lider_id: number; estado: string; tecnico: number }[];
   candidatos: { id: number; nombre: string; vacante_id: number; puntaje: number; decision_lider: Decision;
                 sinastria_lider: number | null; potencial: number | null; arquetipo: Arquetipo | null }[];

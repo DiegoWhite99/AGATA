@@ -36,7 +36,7 @@ cp .env.example .env             # opcional: la clave de Groq para la IA
 ```
 
 En Ubuntu, si `python3 -m venv` falla, instala antes `python3-venv`. La carpeta `perfiles/` no viene en el
-repositorio (los perfiles de cargo traen datos de personas): copia ahí los archivos o súbelos desde **Perfiles**.
+repositorio (los perfiles de cargo traen datos de personas): copia ahí los archivos o súbelos desde **Configuración → Perfiles**.
 
 Para cargar datos de demostración en una base vacía: `.venv/bin/python seed.py`. Si la base ya tiene
 registros, el script se niega a borrarlos (solo lo hace con `--forzar`).
@@ -44,7 +44,7 @@ registros, el script se niega a borrarlos (solo lo hace con `--forzar`).
 ### Inicio de sesión y permisos
 
 AGATA usa **Firebase Authentication con cuentas Google** y no guarda contraseñas. Quién entra lo decide la sección
-**Usuarios**:
+**Configuración → Usuarios**:
 
 - **Administrador:** gestiona todo (empresa, perfiles, líderes, cargos, postulantes y usuarios). Los correos de
   `AGATA_ADMINS` siempre lo son; así entra el primero.
@@ -56,6 +56,10 @@ AGATA usa **Firebase Authentication con cuentas Google** y no guarda contraseña
 El login necesita en `.env` `FIREBASE_API_KEY`, `FIREBASE_PROJECT_ID` y `AGATA_SECRET_KEY`. La clave la generas tú
 (ver `.env.example`). Para trabajar en tu computador sin login, pon `AGATA_SIN_LOGIN=1` y arranca con
 `python app.py`: entras como administrador. Detrás de un servidor WSGI ese modo no existe.
+
+**Menú:** a la vista va el trabajo del día (**Panel**, **Vacantes**, **Líderes** y **Red**); la configuración
+(**Empresa**, **Perfiles** y **Usuarios**) va en el menú **Configuración**, solo para administradores, y la sesión en el
+círculo con tus iniciales. En el celular, todo queda en el botón ☰.
 
 ### Producción gratis (PythonAnywhere + Firebase)
 
@@ -137,6 +141,14 @@ inmediato** de cada líder (cadena de mando; se sugiere desde el perfil de su ca
 **Red** (`/red`) dibuja esa cadena como una red neuronal: el líder (o la empresa) es el nodo central y la red se
 despliega hacia los líderes de su equipo, sus cargos y los postulantes. Cada sinapsis brilla y se engrosa según la
 sinastría con quien está arriba.
+
+**Afinidad entre líderes**: la misma lectura que se hace entre un postulante y su líder (sinastría y manejo de
+conflictos), ahora entre líderes. En **Líderes**, el botón **Afinidad** de cada ficha muestra su afinidad con su jefe,
+su equipo, sus pares y el resto de la red, con los aspectos más fuertes, los puntos de fricción, los puentes y un
+consejo para cada uno. En **Red**, la vista **Afinidad entre líderes** pone a los demás líderes como subnodos alrededor
+del líder central: más cerca y más brillantes cuanto mayor es la sinastría, con el porcentaje bajo cada uno; un clic en
+otro líder lo pasa al centro. Es solo informativa: no cambia el puntaje de ningún postulante. Un líder ve solo a los de
+su cadena de mando.
 
 **Lo que dicta la carta**: cada carta (postulante, líder y empresa) fija sus reglas: elemento dominante,
 modalidad dominante y estilo ante el conflicto, más un rasgo por astro, por ejemplo "Comunicación: precisa,

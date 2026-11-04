@@ -1,5 +1,7 @@
 import { esc } from "./ui.js";
-import type { Carta, Ciudad, DatosNatales, ModoConflicto, PerfilConflicto, Sinastria } from "./types.js";
+import type {
+  AspectoConflicto, AspectoSinastria, Carta, Ciudad, DatosNatales, ModoConflicto, PerfilConflicto, RelacionLider, Sinastria,
+} from "./types.js";
 import { api } from "./api.js";
 
 export const SIGNOS = [
@@ -319,6 +321,33 @@ export function rejillaSinastria(sin: Sinastria, a: Carta, b: Carta, nombreA: st
       <tbody>${cuerpo}</tbody></table></div>
     <p class="leyenda-asp"><span class="asp-armonico">△ ⚹ ☌</span> armonizan · <span class="asp-tenso">□ ☍ ⚻</span> tensan</p>`;
 }
+
+/** Un aspecto de la sinastría, con su lectura. */
+export function itemAspecto(a: AspectoSinastria): string {
+  return `<li class="aspecto ${a.armonico ? "armonico" : "tenso"}">
+      <span class="aspecto-glifos">${a.glifo_a}<b>${a.glifo}</b>${a.glifo_b}</span>
+      <div><strong>${esc(a.astro_a)} en ${esc(a.signo_a)} ${esc(a.aspecto.toLowerCase())} ${esc(a.astro_b)} en ${esc(a.signo_b)}</strong>
+        <p>${esc(a.lectura)}</p></div>
+      <span class="meta">orbe ${a.orbe}°</span>
+    </li>`;
+}
+
+/** Un aspecto entre los astros que pesan en un conflicto: fricción ("tenso") o puente ("armonico"). */
+export function itemConflicto(a: AspectoConflicto, clase: "tenso" | "armonico"): string {
+  return `<li class="aspecto ${clase}">
+      <span class="aspecto-glifos">${a.glifo_a}<b>${a.glifo}</b>${a.glifo_b}</span>
+      <div><strong>${esc(a.astro_a)} ${esc(a.aspecto.toLowerCase())} ${esc(a.astro_b)}</strong><p>${esc(a.lectura)}</p></div>
+    </li>`;
+}
+
+/** Qué es otro líder para el líder del que se habla. */
+export const RELACION_LIDER: Record<RelacionLider, string> = {
+  jefe: "Su jefe",
+  equipo: "De su equipo",
+  par: "Par",
+  cadena: "En su cadena de mando",
+  otra: "Otra rama",
+};
 
 // --- Manejo de conflictos ------------------------------------------------------------
 

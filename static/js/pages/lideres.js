@@ -1,6 +1,6 @@
 import { api, ApiError } from "../api.js";
-import { chipArquetipo, COLOR_ELEMENTO, iniciarNatal, leerNatal, panelAtributos, rellenarNatal, ruedaZodiacal, } from "../astro-ui.js";
-import { $, $$, confirmar, esAdmin, esc, iniciarDropzone, limpiarErrores, mostrarErrores, sesion, toast, vacio } from "../ui.js";
+import { chipArquetipo, COLOR_ELEMENTO, iniciarNatal, itemAspecto, itemConflicto, leerNatal, panelAtributos, RELACION_LIDER, rellenarNatal, ruedaZodiacal, } from "../astro-ui.js";
+import { $, $$, anillo, colorPuntaje, confirmar, esAdmin, esc, iniciarDropzone, limpiarErrores, mostrarErrores, sesion, toast, vacio, } from "../ui.js";
 const dlg = $("#dlg-lider");
 const form = $("#form-lider");
 const inputCv = form.querySelector("[name=cv]");
@@ -78,7 +78,8 @@ function tarjetaLider(l) {
         return equipo ? ` · ${equipo} líder(es) en su equipo` : "";
     })()}</span>
         <div class="lista-acciones">
-          ${l.carta ? `<button class="btn btn-sm" data-carta="${l.id}">Ver carta</button>` : ""}
+          ${l.carta ? `<button class="btn btn-sm" data-carta="${l.id}">Ver carta</button>
+            <button class="btn btn-sec btn-sm" data-afinidad="${l.id}">Afinidad</button>` : ""}
           ${esAdmin || l.id === sesion.liderId ? `<button class="btn btn-sec btn-sm" data-editar="${l.id}">Editar</button>` : ""}
           ${esAdmin ? `<button class="btn btn-peligro btn-sm" data-borrar="${l.id}" aria-label="Eliminar a ${esc(l.nombre)}">Eliminar</button>` : ""}
         </div>
@@ -183,6 +184,9 @@ document.addEventListener("click", async (e) => {
     const verCarta = t.closest("[data-carta]");
     if (verCarta)
         await abrirCarta(await api.get(`/api/lideres/${verCarta.dataset.carta}`));
+    const verAfinidad = t.closest("[data-afinidad]");
+    if (verAfinidad)
+        await abrirAfinidad(Number(verAfinidad.dataset.afinidad));
     const editar = t.closest("[data-editar]");
     if (editar)
         await abrir(await api.get(`/api/lideres/${editar.dataset.editar}`));
@@ -213,9 +217,85 @@ async function abrirCarta(l) {
     ${panelAtributos(l.carta)}`;
     dlgCarta.showModal();
 }
+// --- Afinidad con otros líderes ---------------------------------------------------------
+// La misma lectura que AGATA hace entre un postulante y su líder (sinastría y manejo de conflictos), ahora
+// entre líderes. Es solo informativa: no cambia el puntaje de ningún postulante.
+const dlgAfinidad = $("#dlg-afinidad");
+const primerNombre = (n) => n.split(" ")[0];
+function itemAfinidad(a, yo) {
+    const color = a.arquetipo ? COLOR_ELEMENTO[a.arquetipo.elemento] : "var(--violet)";
+    const cab = `<header class="afinidad-cab">
+      <div class="avatar" style="--c:${color}">${esc(a.nombre[0])}</div>
+      <div class="afinidad-quien">
+        <h3>${esc(a.nombre)}</h3>
+        <span class="meta">${esc(a.cargo)}</span>
+        <span class="chip chip-relacion">${RELACION_LIDER[a.relacion]}</span>
+      </div>
+      ${a.sinastria ? `<div class="afinidad-num">${anillo(a.sinastria.puntaje, 66, 6)}<span>sinastría</span></div>` : ""}
+    </header>`;
+    if (!a.sinastria || !a.conflicto) {
+        return `<article class="afinidad-item sin-carta">${cab}
+        <p class="nota">Sin datos natales: no se puede medir su afinidad.</p></article>`;
+    }
+    const s = a.sinastria;
+    const d = a.conflicto;
+    return `<article class="afinidad-item">${cab}
+      <p class="meta">${s.armonicos} aspectos armónicos · ${s.tensos} tensos · afinidad elemental ${s.elemental.toFixed(0)}%
+        · ante el conflicto <strong style="color:${colorPuntaje(d.puntaje)}">${d.puntaje.toFixed(0)}%</strong></p>
+      <p class="dinamica-riesgo">${esc(d.riesgo)}</p>
+      <details class="afinidad-lectura">
+        <summary>Ver la lectura completa</summary>
+        <h4 class="mini-titulo">Aspectos más fuertes</h4>
+        <ul class="aspectos">${s.aspectos.map(itemAspecto).join("") || `<li class="meta">Sin aspectos dentro de orbe.</li>`}</ul>
+        <div class="grid-2">
+          <div><h4 class="mini-titulo">Puntos de fricción</h4>
+            <ul class="aspectos">${d.fricciones.map((x) => itemConflicto(x, "tenso")).join("") || `<li class="meta">Sin fricciones fuertes entre sus cartas.</li>`}</ul></div>
+          <div><h4 class="mini-titulo">Puentes para resolver</h4>
+            <ul class="aspectos">${d.puentes.map((x) => itemConflicto(x, "armonico")).join("") || `<li class="meta">Pocos puentes naturales: habrá que acordar cómo discrepar.</li>`}</ul></div>
+        </div>
+        <div class="consejos">
+          <div class="consejo"><strong>Para ${esc(yo)}</strong><p>${esc(d.consejo_para_a)}</p></div>
+          <div class="consejo"><strong>Para ${esc(a.nombre)}</strong><p>${esc(d.consejo_para_b)}</p></div>
+        </div>
+      </details>
+    </article>`;
+}
+async function abrirAfinidad(id) {
+    let datos;
+    try {
+        datos = await api.get(`/api/lideres/${id}/afinidad`);
+    }
+    catch {
+        toast("No se pudo leer la afinidad de este líder.", "error");
+        return;
+    }
+    const { lider, afinidades } = datos;
+    $("#dlg-afinidad-titulo").textContent = `Afinidad de ${lider.nombre} con otros líderes`;
+    $("#afinidad-red").href = `/red?centro=l${id}&vista=afinidad`;
+    const medidas = afinidades.filter((a) => a.sinastria);
+    const promedio = medidas.length ? medidas.reduce((t, a) => t + a.sinastria.puntaje, 0) / medidas.length : null;
+    const intro = `<p class="parrafo">La misma lectura que AGATA hace entre un postulante y su líder: sinastría y manejo de
+      conflictos. Es solo informativa: no cambia el puntaje de ningún postulante.${esAdmin ? "" : " Ves a los líderes de tu cadena de mando."}</p>
+    ${promedio != null ? `<p class="meta">Sinastría promedio de ${esc(primerNombre(lider.nombre))} con ${medidas.length} líder(es):
+      <strong style="color:${colorPuntaje(promedio)}">${promedio.toFixed(0)}%</strong>
+      · la más alta, con <strong>${esc(medidas[0].nombre)}</strong> (${medidas[0].sinastria.puntaje.toFixed(0)}%).</p>` : ""}`;
+    $("#afinidad-cuerpo").innerHTML = !lider.tiene_carta
+        ? `<p class="nota">${esc(lider.nombre)} no tiene datos natales: registra su fecha, hora y ciudad de nacimiento para medir su afinidad.</p>`
+        : !afinidades.length
+            ? vacio("♃", "No hay otros líderes para comparar", esAdmin ? "Registra más líderes para ver su afinidad." : "Tu cadena de mando no tiene más líderes.")
+            : `${intro}<div class="afinidad-lista">${afinidades.map((a) => itemAfinidad(a, lider.nombre)).join("")}</div>`;
+    dlgAfinidad.showModal();
+}
 $("#btn-nuevo-lider")?.addEventListener("click", () => abrir());
 iniciarNatal(form).then(() => {
     if (esAdmin && new URLSearchParams(location.search).has("nuevo"))
         abrir();
 });
-cargar().catch(() => toast("No se pudieron cargar los líderes.", "error"));
+cargar()
+    .then(() => {
+    // Desde la Red se llega con ?afinidad=<id> para abrir directamente la afinidad de ese líder.
+    const pedido = Number(new URLSearchParams(location.search).get("afinidad"));
+    if (pedido && lideres.some((l) => l.id === pedido))
+        abrirAfinidad(pedido);
+})
+    .catch(() => toast("No se pudieron cargar los líderes.", "error"));

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import csv
 import io
+import itertools
 import json
 import os
 import re
@@ -448,9 +449,16 @@ def api_red():
     lideres = rows_to_list(con.execute(
         f"SELECT id, nombre, cargo, area, jefe_id, carta FROM lideres WHERE {lideres_en_alcance} ORDER BY nombre", params_l))
     por_id = {l["id"]: l for l in lideres}
+    jefes = _jefes(con)
 
     def sinastria(a: dict | None, b: dict | None) -> float | None:
         return astro.sinastria(a, b, "a", "b")["puntaje"] if a and b else None
+
+    # Afinidad entre cada pareja de líderes (la sinastría es la misma en los dos sentidos; None si a alguno le
+    # falta la carta). `relacion` es lo que b es para a: su jefe, de su equipo, par…
+    afinidades = [{"a": x["id"], "b": y["id"], "sinastria": sinastria(x["carta"], y["carta"]),
+                   "relacion": _relacion(x["id"], y["id"], jefes)}
+                  for x, y in itertools.combinations(lideres, 2)]
 
     candidatos = rows_to_list(con.execute(f"""
         SELECT c.id, c.nombre, c.vacante_id, c.puntaje, c.decision_lider, c.carta,
@@ -461,9 +469,10 @@ def api_red():
         "empresa": {"nombre": empresa["nombre"], "arquetipo": (carta_empresa or {}).get("arquetipo")} if empresa else None,
         "lideres": [{"id": l["id"], "nombre": l["nombre"], "cargo": l["cargo"], "area": l["area"],
                      "jefe_id": l["jefe_id"] if l["jefe_id"] in por_id else None,
-                     "arquetipo": (l["carta"] or {}).get("arquetipo"),
+                     "arquetipo": (l["carta"] or {}).get("arquetipo"), "tiene_carta": bool(l["carta"]),
                      "sinastria_jefe": sinastria(l["carta"], (por_id.get(l["jefe_id"]) or {}).get("carta")),
                      "sinastria_empresa": sinastria(l["carta"], carta_empresa)} for l in lideres],
+        "afinidades": afinidades,
         "vacantes": rows_to_list(con.execute(
             f"SELECT id, cargo, area, lider_id, estado, tecnico FROM vacantes v WHERE {en_alcance} ORDER BY id", params)),
         "candidatos": [{**{k: c[k] for k in ("id", "nombre", "vacante_id", "puntaje", "decision_lider",
@@ -584,6 +593,30 @@ def _lider_publico(lider: dict | None) -> dict | None:
     return lider
 
 
+def _jefes(con) -> dict[int, int | None]:
+    """La cadena de mando completa (id → jefe_id), solo para saber cómo se relacionan dos líderes."""
+    return dict(con.execute("SELECT id, jefe_id FROM lideres").fetchall())
+
+
+def _relacion(lid: int, otro: int, jefes: dict[int, int | None]) -> str:
+    """Qué es `otro` para el líder `lid` en la cadena de mando: su jefe, de su equipo, un par (el mismo jefe, o
+    los dos encabezan la cadena), alguien más arriba o más abajo en su cadena, u otra rama."""
+    if jefes.get(lid) == otro:
+        return "jefe"
+    if jefes.get(otro) == lid:
+        return "equipo"
+    if jefes.get(lid) == jefes.get(otro):
+        return "par"
+
+    def arriba(x: int) -> set[int]:
+        vistos: set[int] = set()
+        while (x := jefes.get(x)) is not None and x not in vistos:
+            vistos.add(x)
+        return vistos
+
+    return "cadena" if otro in arriba(lid) or lid in arriba(otro) else "otra"
+
+
 @app.get("/api/lideres")
 @para_lideres
 def api_lideres():
@@ -627,6 +660,41 @@ def api_lider(lid: int):
         abort(404)
     _exigir_lider(con, lid)
     return jsonify(_lider_publico(lider))
+
+
+@app.get("/api/lideres/<int:lid>/afinidad")
+@para_lideres
+def api_afinidad_lider(lid: int):
+    """Afinidad del líder con los demás líderes que ve el usuario: la misma lectura astral que con un postulante
+    (sinastría y manejo de conflictos). Es solo informativa: no cambia el puntaje de ningún postulante."""
+    con = get_db()
+    _exigir_lider(con, lid)
+    en_alcance, params = _filtro_alcance(con, "id")
+    lideres = rows_to_list(con.execute(
+        f"SELECT id, nombre, cargo, area, carta FROM lideres WHERE {en_alcance} ORDER BY nombre", params))
+    yo = next((l for l in lideres if l["id"] == lid), None)
+    if not yo:
+        abort(404)
+    jefes = _jefes(con)
+    mi_nombre = yo["nombre"].split()[0].title()
+    afinidades = []
+    for otro in lideres:
+        if otro["id"] == lid:
+            continue
+        item = {"id": otro["id"], "nombre": otro["nombre"], "cargo": otro["cargo"], "area": otro["area"],
+                "relacion": _relacion(lid, otro["id"], jefes), "arquetipo": (otro["carta"] or {}).get("arquetipo"),
+                "sinastria": None, "conflicto": None}
+        if yo["carta"] and otro["carta"]:
+            su_nombre = otro["nombre"].split()[0].title()
+            sin = astro.sinastria(yo["carta"], otro["carta"], mi_nombre, su_nombre)
+            item["sinastria"] = {**{k: sin[k] for k in ("puntaje", "armonicos", "tensos", "elemental")},
+                                 "aspectos": sin["aspectos"][:3]}
+            item["conflicto"] = astro.dinamica_conflicto(yo["carta"], otro["carta"], mi_nombre, su_nombre)
+        afinidades.append(item)
+    afinidades.sort(key=lambda a: -a["sinastria"]["puntaje"] if a["sinastria"] else 1)
+    return jsonify({"lider": {"id": yo["id"], "nombre": yo["nombre"], "cargo": yo["cargo"],
+                              "tiene_carta": bool(yo["carta"])},
+                    "afinidades": afinidades})
 
 
 @app.get("/api/lideres/<int:lid>/cv")
