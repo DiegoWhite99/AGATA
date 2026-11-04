@@ -47,7 +47,9 @@ AGATA usa **Firebase Authentication con cuentas Google** y no guarda contraseña
 **Configuración → Usuarios**:
 
 - **Administrador:** gestiona todo (empresa, perfiles, líderes, cargos, postulantes y usuarios). Los correos de
-  `AGATA_ADMINS` siempre lo son; así entra el primero.
+  `AGATA_ADMINS` lo son al entrar; así entra el primero. A cualquiera (también a uno de `AGATA_ADMINS`) se le puede
+  **quitar el acceso** en Usuarios, salvo a uno mismo; «Dar acceso» lo devuelve. Un administrador puede ligar su ficha
+  de líder para ocupar su lugar en la cadena de mando.
 - **Líder:** ve los cargos de su cadena de mando (los suyos y los de quienes le reportan), decide sobre sus
   postulantes, puede volver a consultar a la IA y redirigir talento. Edita su propia ficha, pero no a quién reporta.
 - **Postulante:** no inicia sesión. La postulación (`/postular/<id>`) es pública y al final solo muestra una
@@ -161,8 +163,10 @@ todas sus versiones y queda en la **Papelera**, al final de la página, desde do
 Un perfil que usa algún cargo no se puede eliminar: primero hay que cambiarle el perfil a ese cargo.
 
 **Aprobación de la dirección**: la decisión tiene dos pasos que siguen la línea de mando. Primero el **líder** del cargo
-aprueba; luego, el **cargo de dirección** que encabeza su cadena de mando (directora, director, gerente, rector o
-decano) da la **aprobación final**, y con ella la persona **entra al equipo del líder**. Para **pruebas**, con
+aprueba; luego, el **cargo de dirección** más cercano en su cadena de mando (directora, director, gerente, rector o
+decano) **o cualquiera que esté por encima de él**, se llame como se llame su cargo, da la **aprobación final**, y con ella
+la persona **entra al equipo del líder**. Para que AGATA sepa quién es quien en la cadena, la ficha de líder de cada
+persona se liga a su usuario (o tiene el mismo correo); un administrador también puede ligar su ficha, de forma opcional. Para **pruebas**, con
 `AGATA_ADMIN_APRUEBA=1` en el `.env`, un **administrador** también puede darla (incluso si la cadena no tiene un cargo
 de dirección); queda registrado que la dio él. En producción se deja vacío
 y solo la dan los cargos de dirección. Al aprobar, AGATA pregunta si se cierra la vacante (un cargo puede tener varias

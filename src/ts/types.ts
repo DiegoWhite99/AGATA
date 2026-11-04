@@ -615,6 +615,8 @@ export interface Informe {
   redireccion: Redireccion | null;
   /** null si la cadena de mando del líder no tiene un cargo de dirección. */
   direccion: Direccion | null;
+  /** Quienes están por encima de la dirección en la cadena de mando: también pueden dar la aprobación final. */
+  superiores: Direccion[];
   /** ¿Quien mira es esa dirección? (Si el cargo es suyo, su aprobación como líder ya es la final.) */
   soy_direccion: boolean;
   /** ¿Quien mira puede dar la aprobación final? La dirección (o, en modo de prueba, un administrador). */

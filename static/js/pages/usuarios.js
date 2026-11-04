@@ -23,16 +23,24 @@ function cadenaDe(lid) {
 }
 function explicarAlcance() {
     const lid = Number(selLider.value);
-    $("#campo-lider").hidden = selRol.value !== "lider";
-    $("#usuario-alcance").textContent = selRol.value === "admin"
-        ? "Verá y gestionará todo: empresa, perfiles, líderes, cargos, postulantes y usuarios."
+    const admin = selRol.value === "admin";
+    // Para un líder la ficha es obligatoria (define qué ve); para un administrador, opcional: dice qué lugar ocupa
+    // en la cadena de mando (por ejemplo, para dar la aprobación final como superior de la dirección).
+    $("#usuario-lider-label").innerHTML = admin
+        ? `Su ficha de líder <em class="opcional">(opcional: su lugar en la cadena de mando)</em>`
+        : `Su ficha de líder <b class="req">*</b>`;
+    $("#usuario-alcance").textContent = admin
+        ? "Verá y gestionará todo: empresa, perfiles, líderes, cargos, postulantes y usuarios." +
+            (lid ? " Con su ficha, AGATA sabe qué lugar ocupa en la cadena de mando." : "")
         : lid
             ? `Verá los cargos y postulantes de: ${cadenaDe(lid).map((l) => l.nombre).join(", ")}.`
             : "Elige su ficha de líder: define qué cargos verá.";
 }
 function fila(u) {
     const ficha = u.rol === "admin"
-        ? `<span class="meta-inline">Todo</span>`
+        ? u.lider_nombre
+            ? `${esc(u.lider_nombre)} <span class="meta-inline">${esc(u.lider_cargo)} · ve todo</span>`
+            : `<span class="meta-inline">Todo</span>`
         : u.lider_nombre
             ? `${esc(u.lider_nombre)} <span class="meta-inline">${esc(u.lider_cargo)}</span>`
             : `<span class="meta-inline">Sin ficha ligada: no ve ningún cargo</span>`;
@@ -44,7 +52,7 @@ function fila(u) {
     <td>${u.ultimo_ingreso ? fecha(u.ultimo_ingreso) : `<span class="meta-inline">Aún no entra</span>`}</td>
     <td class="lista-acciones">
       <button class="btn btn-sec btn-sm" data-editar="${u.id}">Editar</button>
-      ${u.yo || u.fijo ? "" : `<button class="btn btn-peligro btn-sm" data-borrar="${u.id}" aria-label="Quitar el acceso a ${esc(u.email)}">Quitar acceso</button>`}
+      ${u.yo ? "" : `<button class="btn btn-peligro btn-sm" data-borrar="${u.id}" data-fijo="${u.fijo ? 1 : ""}" aria-label="Quitar el acceso a ${esc(u.email)}">Quitar acceso</button>`}
     </td>
   </tr>`;
 }
@@ -104,7 +112,8 @@ document.addEventListener("click", async (e) => {
     if (editar)
         abrir(usuarios.find((u) => u.id === Number(editar.dataset.editar)));
     const borrar = t.closest("[data-borrar]");
-    if (borrar && confirmar("¿Quitarle el acceso a AGATA? Su sesión se cierra en su próxima acción.")) {
+    if (borrar && confirmar("¿Quitarle el acceso a AGATA? Su sesión se cierra en su próxima acción." + (borrar.dataset.fijo
+        ? "\n\nEstá en AGATA_ADMINS, pero aun así dejará de entrar. Para devolverle el acceso, usa «Dar acceso»." : ""))) {
         try {
             await api.del(`/api/usuarios/${borrar.dataset.borrar}`);
             toast("Acceso retirado");

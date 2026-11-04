@@ -88,18 +88,21 @@ def _validar_token(id_token: str) -> dict:
 
 
 def _registrar_ingreso(con, email: str, nombre: str | None) -> dict | None:
-    """El usuario autorizado con ese correo, o None. Los de AGATA_ADMINS se crean o se promueven solos."""
+    """El usuario autorizado con ese correo, o None. Los de AGATA_ADMINS se crean o se promueven solos, salvo que
+    un administrador les haya quitado el acceso en Usuarios."""
     fila = con.execute("SELECT * FROM usuarios WHERE email=?", (email,)).fetchone()
-    if email in admins_fijos():
+    quitado = con.execute("SELECT 1 FROM accesos_quitados WHERE email=?", (email,)).fetchone()
+    if email in admins_fijos() and not quitado:
         if not fila:
             con.execute("INSERT INTO usuarios (email, nombre, rol) VALUES (?, ?, 'admin')", (email, nombre))
         elif fila["rol"] != "admin":
             con.execute("UPDATE usuarios SET rol='admin' WHERE email=?", (email,))
     elif not fila:
         return None
-    # Un líder sin ficha ligada queda ligado a la ficha de líder con su mismo correo, si la hay.
+    # Quien no tiene ficha ligada queda ligado a la ficha de líder con su mismo correo, si la hay (un administrador
+    # también: así AGATA sabe qué lugar ocupa en la cadena de mando).
     con.execute("""UPDATE usuarios SET lider_id = (SELECT id FROM lideres WHERE lower(lideres.email) = usuarios.email LIMIT 1)
-                   WHERE email=? AND rol='lider' AND lider_id IS NULL""", (email,))
+                   WHERE email=? AND lider_id IS NULL""", (email,))
     con.execute("""UPDATE usuarios SET ultimo_ingreso=CURRENT_TIMESTAMP, nombre=COALESCE(NULLIF(nombre, ''), ?)
                    WHERE email=?""", (nombre, email))
     con.commit()

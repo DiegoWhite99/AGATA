@@ -378,7 +378,9 @@ def _validar_usuario(data: dict, uid: int | None = None) -> dict:
         errores["email"] = "Ese correo ya tiene acceso."
     if usuario["rol"] not in acceso.ROLES:
         errores["rol"] = "Elige un rol."
-    elif usuario["rol"] == "lider":
+    elif usuario["rol"] == "lider" or data.get("lider_id"):
+        # Para un líder es obligatoria (define qué ve); para un administrador es opcional: dice qué lugar ocupa en
+        # la cadena de mando (por ejemplo, para dar la aprobación final como superior de la dirección).
         try:
             usuario["lider_id"] = int(data.get("lider_id"))
             if not con.execute("SELECT 1 FROM lideres WHERE id=?", (usuario["lider_id"],)).fetchone():
@@ -404,6 +406,7 @@ def api_crear_usuario():
     con = get_db()
     cur = con.execute("INSERT INTO usuarios (email, nombre, rol, lider_id) VALUES (?, ?, ?, ?)",
                       tuple(usuario.values()))
+    con.execute("DELETE FROM accesos_quitados WHERE email=?", (usuario["email"],))  # si se le había quitado
     con.commit()
     return jsonify({"id": cur.lastrowid}), 201
 
@@ -428,7 +431,8 @@ def api_borrar_usuario(uid: int):
     if uid == g.usuario["id"]:
         return jsonify({"error": "No puedes quitarte el acceso a ti mismo."}), 409
     if fila["email"] in acceso.admins_fijos():
-        return jsonify({"error": "Es administrador por configuración (AGATA_ADMINS): quítalo de ahí primero."}), 409
+        # Está en AGATA_ADMINS: se anota para que no vuelva a crearse sola al entrar.
+        con.execute("INSERT OR IGNORE INTO accesos_quitados (email) VALUES (?)", (fila["email"],))
     con.execute("DELETE FROM usuarios WHERE id=?", (uid,))
     con.commit()
     return "", 204
@@ -464,7 +468,7 @@ def api_panel():
             FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id JOIN lideres l ON l.id = v.lider_id
             WHERE {en_alcance} AND c.decision_lider = 'aprobado' AND c.decision_direccion IS NULL
             ORDER BY c.id""", params))
-        if _puede_aprobar_final(g.usuario, _direccion_de(lideres_todos, c["lider_id"]))]
+        if _puede_aprobar_final(g.usuario, _aprobadores(lideres_todos, c["lider_id"]))]
     recientes = con.execute(f"""
         SELECT c.id, c.nombre, c.puntaje, c.decision_lider, c.decision_direccion, c.creado,
                json_extract(c.carta, '$.arquetipo') AS arquetipo, v.cargo, v.id AS vacante_id
@@ -646,14 +650,16 @@ def _lideres_por_id(con) -> dict[int, dict]:
     return {l["id"]: l for l in rows_to_list(con.execute("SELECT id, nombre, cargo, email, jefe_id FROM lideres"))}
 
 
-def _direccion_de(lideres: dict[int, dict], lider_id: int | None) -> dict | None:
-    """Quién da la aprobación final de un postulante aprobado por este líder: el cargo de dirección más alto de su
-    cadena de mando (normalmente quien la encabeza, que puede ser el mismo líder). None si la cadena no tiene uno."""
+def _aprobadores(lideres: dict[int, dict], lider_id: int | None) -> list[dict]:
+    """Quienes dan la aprobación final de un postulante aprobado por este líder: el cargo de dirección más cercano en
+    su cadena de mando (puede ser el mismo líder) y todos los que están por encima de él, se llame como se llame su
+    cargo. El primero es la dirección. Vacío si la cadena no tiene un cargo de dirección."""
     cadena: list[dict] = []
     while lider_id in lideres and all(l["id"] != lider_id for l in cadena):
         cadena.append(lideres[lider_id])
         lider_id = lideres[lider_id]["jefe_id"]
-    return next((l for l in reversed(cadena) if perfiles.es_direccion(l["cargo"])), None)
+    i = next((k for k, l in enumerate(cadena) if perfiles.es_direccion(l["cargo"])), None)
+    return cadena[i:] if i is not None else []
 
 
 def _es_de(usuario: dict | None, lider: dict | None) -> bool:
@@ -666,12 +672,17 @@ def _es_de(usuario: dict | None, lider: dict | None) -> bool:
                 and lider["email"].strip().lower() == usuario["email"].strip().lower())
 
 
-def _puede_aprobar_final(usuario: dict | None, direccion: dict | None) -> bool:
-    """La aprobación final la da quien ocupa la dirección de la cadena de mando. En modo de prueba
+def _es_aprobador(usuario: dict | None, aprobadores: list[dict]) -> bool:
+    """¿El usuario es la dirección o alguien por encima de ella en la cadena de mando?"""
+    return any(_es_de(usuario, a) for a in aprobadores)
+
+
+def _puede_aprobar_final(usuario: dict | None, aprobadores: list[dict]) -> bool:
+    """La aprobación final la da la dirección o quien esté por encima de ella. En modo de prueba
     (AGATA_ADMIN_APRUEBA=1) también un administrador, incluso si la cadena no tiene un cargo de dirección."""
     if not usuario:
         return False
-    return _es_de(usuario, direccion) or (usuario.get("rol") == "admin" and acceso.admin_aprueba())
+    return _es_aprobador(usuario, aprobadores) or (usuario.get("rol") == "admin" and acceso.admin_aprueba())
 
 
 def _publico_direccion(d: dict | None) -> dict | None:
@@ -1375,10 +1386,12 @@ def api_candidato(cid: int):
     orden = [r[0] for r in con.execute(
         f"SELECT id FROM candidatos WHERE vacante_id=? ORDER BY {ORDEN_RANKING}", (cand["vacante_id"],))]
     completo = row_to_dict(con.execute("SELECT * FROM candidatos WHERE id=?", (cid,)).fetchone())
-    direccion = _direccion_de(_lideres_por_id(con), vac["lider_id"])
+    aprobadores = _aprobadores(_lideres_por_id(con), vac["lider_id"])
     return jsonify({"candidato": cand, "vacante": vac, "lider": lider, "empresa": _empresa(con),
-                    "direccion": _publico_direccion(direccion), "soy_direccion": _es_de(g.usuario, direccion),
-                    "puedo_aprobar": _puede_aprobar_final(g.usuario, direccion), "admin_aprueba": acceso.admin_aprueba(),
+                    "direccion": _publico_direccion(aprobadores[0] if aprobadores else None),
+                    "superiores": [_publico_direccion(a) for a in aprobadores[1:]],
+                    "soy_direccion": _es_aprobador(g.usuario, aprobadores),
+                    "puedo_aprobar": _puede_aprobar_final(g.usuario, aprobadores), "admin_aprueba": acceso.admin_aprueba(),
                     "ranking": {"posicion": orden.index(cid) + 1, "total": len(orden)},
                     "redireccion": _redirecciones(con, _vacante_completa(con, cand["vacante_id"]), [completo]).get(cid),
                     "ia": {"activa": oraculo.activo(), "modelo": oraculo.modelo()}})
@@ -1479,11 +1492,11 @@ def api_editar_enlaces(cid: int):
     return jsonify({"puntaje": res["puntaje"], "enlaces": cand["enlaces"], "error_ia": cand.get("error_ia")})
 
 
-def _caso_direccion(con, cid: int) -> tuple[dict, dict | None]:
-    """Las decisiones del postulante, su vacante y quién da la aprobación final."""
+def _caso_direccion(con, cid: int) -> tuple[dict, list[dict]]:
+    """Las decisiones del postulante, su vacante y quiénes pueden dar la aprobación final."""
     fila = dict(con.execute("""SELECT c.decision_lider, c.decision_direccion, v.id AS vacante_id, v.lider_id, v.estado
                                FROM candidatos c JOIN vacantes v ON v.id = c.vacante_id WHERE c.id=?""", (cid,)).fetchone())
-    return fila, _direccion_de(_lideres_por_id(con), fila["lider_id"])
+    return fila, _aprobadores(_lideres_por_id(con), fila["lider_id"])
 
 
 @app.patch("/api/candidatos/<int:cid>/decision")
@@ -1495,12 +1508,13 @@ def api_decision(cid: int):
         abort(400)
     con = get_db()
     _exigir_candidato(con, cid)
-    fila, direccion = _caso_direccion(con, cid)
-    # Si el cargo es de quien ocupa la dirección, su aprobación como líder ya es la final.
-    propia = direccion is not None and direccion["id"] == fila["lider_id"] and _es_de(g.usuario, direccion)
+    fila, aprobadores = _caso_direccion(con, cid)
+    # Si el cargo es de la dirección (o de alguien por encima) y es quien decide, su aprobación ya es la final.
+    lider_vacante = next((a for a in aprobadores if a["id"] == fila["lider_id"]), None)
+    propia = lider_vacante is not None and _es_de(g.usuario, lider_vacante)
     if fila["decision_direccion"] and not propia:
-        return jsonify({"error": f"{direccion['nombre'] if direccion else 'La dirección'} ya dio su decisión final. "
-                                 "Para cambiar la del líder, primero debe retirar la suya."}), 409
+        return jsonify({"error": "La dirección ya dio su decisión final. Para cambiar la del líder, primero debe "
+                                 "retirar la suya."}), 409
     nota = _texto(data, "nota") or None
     con.execute("UPDATE candidatos SET decision_lider=?, nota_lider=? WHERE id=?", (decision, nota, cid))
     if propia:
@@ -1523,17 +1537,19 @@ def api_decision_direccion(cid: int):
         abort(400)
     con = get_db()
     _exigir_candidato(con, cid)
-    fila, direccion = _caso_direccion(con, cid)
-    if not _puede_aprobar_final(g.usuario, direccion):
-        if not direccion:
+    fila, aprobadores = _caso_direccion(con, cid)
+    if not _puede_aprobar_final(g.usuario, aprobadores):
+        if not aprobadores:
             return jsonify({"error": "La cadena de mando de este líder no tiene un cargo de dirección. "
                                      "Asígnale su jefe inmediato en Líderes."}), 403
-        return jsonify({"error": f"La aprobación final la da {direccion['nombre']} ({direccion['cargo']})"
-                                 + (" o un administrador." if acceso.admin_aprueba() else ".")}), 403
+        d = aprobadores[0]
+        return jsonify({"error": f"La aprobación final la da {d['nombre']} ({d['cargo']})"
+                                 + (" o quien esté por encima en la cadena de mando" if len(aprobadores) > 1 else "")
+                                 + (" o un administrador" if acceso.admin_aprueba() else "") + "."}), 403
     if decision and fila["decision_lider"] != "aprobado":
         return jsonify({"error": "Primero el líder debe aprobar a esta persona."}), 409
     _guardar_direccion(con, cid, decision, _texto(data, "nota") or None, g.usuario,
-                       como_admin=not _es_de(g.usuario, direccion))
+                       como_admin=not _es_aprobador(g.usuario, aprobadores))
     cerrada = decision == "aprobado" and bool(data.get("cerrar_vacante")) and fila["estado"] == "abierta"
     if cerrada:
         con.execute("UPDATE vacantes SET estado='cerrada' WHERE id=?", (fila["vacante_id"],))

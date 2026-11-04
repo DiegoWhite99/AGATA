@@ -525,7 +525,11 @@ function bloqueDireccion() {
     // La da quien ocupa la dirección de la cadena; en modo de prueba, también un administrador.
     const puedo = datos.puedo_aprobar;
     const oAdmin = datos.admin_aprueba && dir ? " o un administrador" : "";
-    const quien = dir ? `<strong>${esc(dir.nombre)}</strong> (${esc(dir.cargo)})` : datos.admin_aprueba ? "un administrador" : "";
+    // La dirección y, si hay, quienes están por encima de ella en la cadena de mando.
+    const arriba = datos.superiores.length
+        ? ` o quien está por encima: ${datos.superiores.map((s) => `<strong>${esc(s.nombre)}</strong> (${esc(s.cargo)})`).join(", ")}`
+        : "";
+    const quien = dir ? `<strong>${esc(dir.nombre)}</strong> (${esc(dir.cargo)})${arriba}` : datos.admin_aprueba ? "un administrador" : "";
     let cuerpo;
     if (c.decision_direccion) {
         const entro = c.decision_direccion === "aprobado";

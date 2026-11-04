@@ -125,6 +125,13 @@ CREATE TABLE IF NOT EXISTS usuarios (
     creado TEXT DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Correos de AGATA_ADMINS a los que un administrador les quitó el acceso en Usuarios: ya no se crean solos al
+-- entrar. «Dar acceso» los vuelve a habilitar.
+CREATE TABLE IF NOT EXISTS accesos_quitados (
+    email TEXT PRIMARY KEY COLLATE NOCASE,
+    quitado TEXT DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Lectura guardada de cada archivo de la carpeta perfiles/ (se renueva si el archivo cambia).
 CREATE TABLE IF NOT EXISTS perfiles_cache (
     archivo TEXT PRIMARY KEY,
